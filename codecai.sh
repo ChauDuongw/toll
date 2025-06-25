@@ -1,15 +1,15 @@
 
 #!/bin/bash
-# curl -sL https://raw.githubusercontent.com/ChauDuongw/moungdungidx/refs/heads/main/0110/minhchau0110.sh | bash
+# curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/codecai.sh | bash
 
 # --- Cấu hình ---
 # URL của file code Python cần "cài đặt" (tool.py)
-PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/moungdungidx/refs/heads/main/tool2.py"
+PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/toll.py"
 # Tên file code Python sau khi tải về (bạn muốn đặt là a1.py)
 PYTHON_CODE_FILENAME="a1.py"
 
 # URL của script cần chạy sau khi cài đặt (run_app.sh)
-RUN_SCRIPT_URL="https://raw.githubusercontent.com/ChauDuongw/moungdungidx/refs/heads/main/run_app.sh"
+RUN_SCRIPT_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/caimoitruong.sh"
 # Tên file script sau khi tải về (run_app.sh)
 RUN_SCRIPT_FILENAME="run_app.sh"
 
