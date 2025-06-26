@@ -79,6 +79,15 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# --- Thêm phần cài đặt fake_useragent ---
+echo "Đang cài đặt thư viện fake_useragent vào môi trường ảo..."
+pip install fake_useragent
+if [ $? -ne 0 ]; then
+    echo "Lỗi: Không thể cài đặt thư viện fake_useragent. Vui lòng kiểm tra kết nối internet."
+    exit 1
+fi
+# --- Kết thúc phần thêm ---
+
 # 7. Cài đặt các trình duyệt cần thiết cho Playwright (Chromium)
 echo "Đang cài đặt các trình duyệt cho Playwright (Chromium)..."
 playwright install chromium
