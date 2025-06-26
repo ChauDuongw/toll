@@ -26,11 +26,12 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
 
     browser = None
     context = None
+    ua = UserAgent()
     try:
         browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context(UserAgent().chrome)
+        context = await browser.new_context(user_agent=ua.chrome)
         page = await context.new_page()
-
+     
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
         await page.goto("https://accounts.google.com")
 
