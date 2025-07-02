@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Cấu hình của bạn
-MONERO_WALLET_ADDRESS="85JiygdevZmb1AxUosPHyxC13iVu9zCydQ2mDFEBJaHp2wyupPnq57n6bRcNBwYSh9bB5SA4MhTDh9moj55FwinXGn9jDkz"
+MONERO_WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
 POOL_URL="pool.hashvault.pro:443"
 XMRIG_VERSION="6.24.0"
 XMRIG_ARCHIVE="xmrig-${XMRIG_VERSION}-linux-static-x64.tar.gz"
@@ -17,7 +17,7 @@ cd ~/xmr_miner || { echo "Không thể vào thư mục xmr_miner. Thoát."; exit
 if [ ! -f "$XMRIG_ARCHIVE" ]; then
     echo "Tải xuống XMRig từ $XMRIG_URL bằng wget..."
     if ! command -v wget &> /dev/null; then
-        echo "Lỗi: 'wget' không được tìm thấy. Vui lòng cài đặt wget."
+        echo "Lỗi: 'wget' không được tìm thấy. Vui lòng cài đặt wget (ví dụ: sudo apt install wget)."
         exit 1
     fi
     wget "$XMRIG_URL"
@@ -33,7 +33,7 @@ fi
 if [ ! -d "$XMRIG_DIR" ]; then
     echo "Giải nén XMRig..."
     if ! command -v tar &> /dev/null; then
-        echo "Lỗi: 'tar' không được tìm thấy. Vui lòng cài đặt tar."
+        echo "Lỗi: 'tar' không được tìm thấy. Vui lòng cài đặt tar (thường có sẵn theo mặc định)."
         exit 1
     fi
     tar -zxvf "$XMRIG_ARCHIVE"
