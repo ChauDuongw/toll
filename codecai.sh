@@ -1,72 +1,59 @@
-#!/bin/bash
+#!/bin/sh
 
-# --- CẤU HÌNH CỦA BẠN ---
-MONERO_WALLET_ADDRESS="85JiygdevZmb1AxUosPHyxC13iVu9zCydQ2mDFEBJaHp2wyupPnq57n6bRcNBwYSh9bA5SA4MhTDh9moj55FwinXGn9jDkz"
+# Cấu hình của bạn
+MONERO_WALLET_ADDRESS="85JiygdevZmb1AxUosPHyxC13iVu9zCydQ2mDFEBJaHp2wyupPnq57n6bRcNBwYSh9bB5SA4MhTDh9moj55FwinXGn9jDkz"
 POOL_URL="pool.hashvault.pro:443"
-WORKER_NAME="my_user_miner_no_sudo_XMR"
-CPU_THREADS="" # XMRig sẽ tự động phát hiện số luồng tốt nhất nếu để trống
-
-# --- KHÔNG CẦN CHỈNH SỬA TỪ ĐÂY TRỞ XUỐNG NẾU BẠN KHÔNG CHẮC CHẮN ---
-
-XMRIG_DIR="xmrig_miner"
 XMRIG_VERSION="6.24.0"
-# Tên tệp TAR.GZ mà bạn đã TẢI XUỐNG THỦ CÔNG và đặt cùng thư mục với script này
-XMRIG_TAR_FILE="xmrig-${XMRIG_VERSION}-linux-x64.tar.gz"
+XMRIG_ARCHIVE="xmrig-${XMRIG_VERSION}-linux-static-x64.tar.gz"
+XMRIG_URL="https://github.com/xmrig/xmrig/releases/download/v${XMRIG_VERSION}/${XMRIG_ARCHIVE}"
+XMRIG_DIR="xmrig-${XMRIG_VERSION}"
 
-# Hàm kiểm tra lỗi và thoát
-check_error() {
-    if [ $? -ne 0 ]; then
-        echo "LỖI: $1"
+# Bước 1: Tạo thư mục để lưu trữ các tệp
+echo "Tạo thư mục đào XMR..."
+mkdir -p ~/xmr_miner
+cd ~/xmr_miner || { echo "Không thể vào thư mục xmr_miner. Thoát."; exit 1; }
+
+# Bước 2: Tải xuống XMRig (bỏ qua nếu đã có)
+if [ ! -f "$XMRIG_ARCHIVE" ]; then
+    echo "Tải xuống XMRig từ $XMRIG_URL bằng wget..."
+    if ! command -v wget &> /dev/null; then
+        echo "Lỗi: 'wget' không được tìm thấy. Vui lòng cài đặt wget."
         exit 1
     fi
-}
-
-echo "--- Bắt đầu Script chạy XMRig Miner (KHÔNG CẦN SUDO) ---"
-echo "LƯU Ý: Hiệu suất đào có thể thấp hơn do không có quyền tối ưu hóa hệ thống."
-echo "==================================================="
-
-# 1. Giải nén XMRig
-echo "Đang kiểm tra và giải nén XMRig..."
-if [ ! -f "$XMRIG_TAR_FILE" ]; then
-    echo "LỖI: Không tìm thấy tệp '$XMRIG_TAR_FILE' trong thư mục hiện tại."
-    echo "Vui lòng tải xuống thủ công từ https://github.com/xmrig/xmrig/releases/download/v${XMRIG_VERSION}/xmrig-${XMRIG_VERSION}-linux-x64.tar.gz"
-    echo "và đặt nó vào cùng thư mục với script này."
-    exit 1
-fi
-
-if [ ! -d "$XMRIG_DIR" ]; then
-    mkdir "$XMRIG_DIR"
-fi
-
-tar -xzvf "$XMRIG_TAR_FILE" -C "$XMRIG_DIR" --strip-components=1 >/dev/null 2>&1
-check_error "Không thể giải nén XMRig. Tệp .tar.gz có thể bị hỏng hoặc không phải định dạng tar.gz hợp lệ."
-echo "Đã giải nén XMRig thành công."
-echo "---------------------------------------------------"
-
-# 2. Cấp quyền thực thi XMRig
-echo "Đang cấp quyền thực thi cho XMRig..."
-if [ ! -x "$XMRIG_DIR/xmrig" ]; then
-    chmod +x "$XMRIG_DIR/xmrig"
-fi
-echo "Đã cấp quyền thực thi cho XMRig thành công."
-echo "---------------------------------------------------"
-
-# 3. Chạy XMRig Miner
-echo "--- Đang khởi chạy XMRig Miner ---"
-echo "Bạn sẽ thấy log của miner bên dưới. Để dừng, nhấn Ctrl+C."
-echo "==================================================="
-
-# Chuyển vào thư mục XMRig để chạy miner
-cd "$XMRIG_DIR" || check_error "Không thể vào thư mục XMRig."
-
-# Chạy miner với các tham số bạn đã cấu hình
-# XMRig sẽ tự động hiển thị log ra terminal
-if [ -n "$CPU_THREADS" ]; then
-    ./xmrig -a rx/0 -o "$POOL_URL" -u "$MONERO_WALLET_ADDRESS" -p "$WORKER_NAME" --cpu-max-threads="$CPU_THREADS"
+    wget "$XMRIG_URL"
+    if [ ! -f "$XMRIG_ARCHIVE" ]; then
+        echo "Lỗi: Không thể tải xuống XMRig. Vui lòng kiểm tra lại URL hoặc kết nối mạng của bạn."
+        exit 1
+    fi
 else
-    ./xmrig -a rx/0 -o "$POOL_URL" -u "$MONERO_WALLET_ADDRESS" -p "$WORKER_NAME"
+    echo "Tệp XMRig đã tồn tại, bỏ qua bước tải xuống."
 fi
 
-# Lệnh này chỉ chạy sau khi XMRig dừng (bạn nhấn Ctrl+C)
-echo "==================================================="
-echo "--- XMRig Miner đã dừng. ---"
+# Bước 3: Giải nén XMRig (bỏ qua nếu đã có)
+if [ ! -d "$XMRIG_DIR" ]; then
+    echo "Giải nén XMRig..."
+    if ! command -v tar &> /dev/null; then
+        echo "Lỗi: 'tar' không được tìm thấy. Vui lòng cài đặt tar."
+        exit 1
+    fi
+    tar -zxvf "$XMRIG_ARCHIVE"
+    if [ ! -d "$XMRIG_DIR" ]; then
+        echo "Lỗi: Không thể giải nén XMRig. Vui lòng kiểm tra tệp tin nén."
+        exit 1
+    fi
+else
+    echo "Thư mục XMRig đã tồn tại, bỏ qua bước giải nén."
+fi
+
+# Bước 4: Di chuyển vào thư mục XMRig đã giải nén
+cd "$XMRIG_DIR" || { echo "Không thể vào thư mục XMRig. Thoát."; exit 1; }
+
+# Bước 5: Chạy XMRig và hiển thị log trực tiếp
+echo "Bắt đầu đào Monero. Log sẽ hiển thị trực tiếp tại đây..."
+echo "Địa chỉ ví: $MONERO_WALLET_ADDRESS"
+echo "Pool: $POOL_URL"
+
+# Chạy xmrig với các tùy chọn. Output sẽ hiển thị trực tiếp trên terminal.
+./xmrig -o "$POOL_URL" -u "$MONERO_WALLET_ADDRESS" -p x -k
+
+echo "Script đào Monero đã dừng."
