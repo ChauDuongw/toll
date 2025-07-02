@@ -3,7 +3,6 @@ import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import time
-from fake_useragent import UserAgent
 from playwright.async_api import Playwright, async_playwright, expect
 
 # --- Playwright automation functions (modified to send notifications to GUI) ---
@@ -22,16 +21,15 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
     """
     if stop_event.is_set():
         log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
-        return None, None
+        return None
 
     browser = None
     context = None
-    ua = UserAgent()
     try:
         browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context(user_agent=ua.chrome)
+        context = await browser.new_context()
         page = await context.new_page()
-     
+
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
         await page.goto("https://accounts.google.com")
 
@@ -69,7 +67,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
         await page.get_by_role("button", name="Next").click()
 
         log_callback("Đang chờ trường mật khẩu...", "general")
-        # Check if there's a "Couldn't find your Google Account" error
+
         try:
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng kiểm tra tài khoản.", "general")
@@ -95,7 +93,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
             await expect(page.locator("span").filter(has_text="Chào mừng bạn đến với tài kho")).to_be_visible(timeout=100000)
             log_callback("Phát hiện thông báo 'Chào mừng bạn đến với tài khoản', đang click 'Tôi hiểu'.", "general")
             # Using timeout from snippet for 'Tôi hiểu' button (100s)
-            await page.get_by_role("button", name="Tôi hiểu").click(timeout=100000)
+            await page.get_by_role("button", name="I understand").click(timeout=100000)
         except Exception:
             log_callback("Không có thông báo 'Chào mừng' hoặc đã xử lý, đang thử goto IDX.", "general")
 
@@ -113,79 +111,56 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
             await browser.close() # Ensure browser is closed on stop signal
 
 async def handle_idx_initial_setup(context, log_callback, stop_event: threading.Event):
-    """
-    Handles initial IDX setup (accept terms, fill dev profile).
-    Args:
-        context (BrowserContext): Logged-in browser context.
-        log_callback (callable): Function to send messages to the GUI.
-        stop_event (threading.Event): Event to signal stopping the automation.
-    """
     if stop_event.is_set():
-        log_callback("Đã nhận tín hiệu dừng. Bỏ qua thiết lập IDX.", "general")
+        log_callback("Đã nhận tín hiệu dừng.", "general")
         return
-    
     page = await context.new_page()
     try:
-        log_callback("Đang kiểm tra thông báo chào mừng Firebase Studio...", "general")
+        log_callback("Đang kiểm tra thông báo chào mừng Firebase Studio", "general")
         await page.goto("https://idx.google.com", wait_until="domcontentloaded")
-
         try:
             if stop_event.is_set():
-                log_callback("Đã nhận tín hiệu dừng. Đang dừng kiểm tra chào mừng Firebase.", "general")
+                log_callback("Đã nhận tín hiệu dừng.", "general")
                 return
-            # Using timeout from snippet (150s)
             await expect(page.get_by_role("heading", name="Welcome to Firebase Studio, a")).to_be_visible(timeout=150000)
-            log_callback("Phát hiện thông báo chào mừng Firebase Studio.", "general")
+            log_callback("Phát hiện thông báo .", "general")
             element_locator = page.get_by_text("I accept the terms and")
             await expect(element_locator).to_be_visible()
             box = await element_locator.bounding_box()
             if box:
-                # Using offset calculation from snippet to recreate click position
-                offset_x = 5  # Di chuyển 5 pixel sang phải từ góc trái
-                offset_y = 5  # Di chuyển 5 pixel xuống dưới từ góc trên
+                offset_x = 5  
+                offset_y = 5  
                 x_click = box['x'] + offset_x
                 y_click = box['y'] + offset_y
-                # Ensure click is within bounds
                 x_click = max(box['x'], min(x_click, box['x'] + box['width'] - 1))
                 y_click = max(box['y'], min(y_click, box['y'] + box['height'] - 1))
-                # Reverting to exact snippet's click method and parameters
-                await element_locator.click(position={'x': offset_x, 'y': offset_y}, force=True) # Used offset relative to element
+                await element_locator.click(position={'x': offset_x, 'y': offset_y}, force=True)
             
             await page.get_by_role("button", name="Confirm").click()
             log_callback("Đã click nút 'Confirm'.", "general")
-            # The snippet didn't explicitly wait for networkidle here, will remove it as per "giữ nguyên tất cả"
-            # await page.wait_for_load_state("networkidle") 
-            log_callback("Hoàn tất xử lý điều khoản dịch vụ.", "general")
+            log_callback("Hoàn tất ","general" )
 
         except Exception:
-            log_callback("Không có thông báo chào mừng Firebase Studio hoặc đã xử lý.", "general")
+            log_callback("Không có thông báo chào mừng .", "general")
 
-        log_callback("Đang điền thông tin hồ sơ nhà phát triển (dev profile)...", "general")
-        # Keeping the `while True` loop structure as in the provided snippet
+        log_callback("Đang điền thông tin hồ sơ nhà phát triển", "general")
         while True: 
             if stop_event.is_set():
-                log_callback("Đã nhận tín hiệu dừng. Đang dừng điền dev profile.", "general")
+                log_callback("Đã nhận tín hiệu dừng.", "general")
                 return
             try:
                 await page.goto("https://studio.firebase.google.com/devprofile", wait_until="load")
 
                 await page.get_by_role("textbox", name="City, Country").click()
-                await page.get_by_role("textbox", name="City, Country").fill("han") # As in snippet
-                # Using "HanoiVietnam" from snippet, but original Canvas used "Hanoi, Vietnam"
+                await page.get_by_role("textbox", name="City, Country").fill("han") 
                 await expect(page.get_by_text("HanoiVietnam")).to_be_visible(timeout=5000)
                 await page.get_by_text("HanoiVietnam").click()
-                
-                await page.get_by_role("combobox").select_option("Architect") # As in snippet
-                
-                # Reverting to snippet's locator for checkbox
-                # Original snippet had "filter(has_has_text)", assuming it was a typo and fixing to "has_text" as it's the correct syntax for Playwright
+                await page.get_by_role("combobox").select_option("Architect") 
                 await page.locator("label").filter(has_text="Stay up to date on new").click()
                 log_callback("Đã điền thông tin và chọn các tùy chọn dev profile.", "general")
-                break # Break from the while loop on success
+                break 
             except Exception as e:
-                log_callback(f"Lỗi khi điền form dev profile: {e}", "general") # As in snippet
-                # If there's an error, the loop will continue as per the snippet's `while True` structure
-
+                log_callback(f"Lỗi khi điền form dev profile: {e}", "general")
         try: 
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng click Continue (1).", "general")
@@ -194,8 +169,6 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
             log_callback("Đã click nút 'Continue' .", "general")
         except Exception as e:
             log_callback(f"Lỗi khi click nút 'Continue' (1) trong form dev profile: {e}", "general")
-        
-        # Chờ thông báo "You earned your first"
         try:
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo earned.", "general")
@@ -206,49 +179,46 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
             log_callback("Đã click nút 'Continue' (2).", "general")
         except Exception as e:
             log_callback(f"Thông báo 'You earned your first' không xuất hiện hoặc lỗi khi click 'Continue' (2): {e}", "general")
-            # If not found, try clicking continue again as a precaution
             try:
                 if stop_event.is_set():
                     log_callback("Đã nhận tín hiệu dừng.", "general")
                     return
                 await page.get_by_role("button", name="Continue").click(timeout=5000)
-                log_callback("Đã thử click nút 'Continue' (2) lần nữa.", "general")
+                log_callback("Đã thử click nút 'Continue' (2) .", "general")
             except Exception:
-                pass # Ignore if button not found or cannot be clicked
-
+                pass 
     except Exception as e:
         log_callback(f"Lỗi trong quá trình xử lý thiết lập ban đầu của IDX: {e}", "general")
     finally:
         if page:
             await page.close()
-
-
 async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback, stop_event: threading.Event, app_type: str = "flutter"):
-   
-    if stop_event.is_set():
-        log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Bỏ qua tạo máy ảo.", app_name)
-        return
-    
     page_vm = None
-    try:
-        # Reverting to exact snippet's initialization method
-        page_vm = await context.new_page() 
-        
+    page_vm = await context.new_page() 
+    
+    async def xoa(page_vm):
+            url = page_vm.url
+            parts = url.split('/')
+            diemnhan = parts[-1]
+            await page_vm.goto("https://idx.google.com/")
+            await page_vm.locator("workspace").filter(has_text=diemnhan).get_by_label("Workspace actions").click()
+            await page_vm.get_by_role("menuitem", name="Delete").click()
+            await page_vm.get_by_role("textbox", name="delete").click()
+            await page_vm.get_by_role("textbox", name="delete").fill("delete")
+            await page_vm.get_by_role("button", name="Delete").click()
+    async def Tao_may(page_vm):
+     if stop_event.is_set():
+        log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Bỏ qua tạo máy ảo.", app_name)
+
+     try:
         if app_type == "flutter":
             log_callback(f"[{app_name}] Đang tạo máy ảo Flutter App tên '{app_name}'...", app_name)
             await page_vm.goto("https://idx.google.com/new/flutter", wait_until="load")
             await page_vm.get_by_role("textbox", name="My Flutter App").fill(app_name)
             await page_vm.get_by_role("button", name="Create").click()
-        elif app_type == "android":
-            log_callback(f"[{app_name}] Đang tạo máy ảo Android Studio App tên '{app_name}'...", app_name)
-            await page_vm.goto("https://idx.google.com/new/android-studio", wait_until="load")
-            # Using "My Android App" as per snippet (and typically correct role name)
-            await page_vm.get_by_role("textbox", name="My Android App").fill(app_name)
-            await page_vm.get_by_role("button", name="Create").click()
         else:
             log_callback(f"[{app_name}] Lỗi: Loại app không hợp lệ: {app_type}", app_name)
             return
-
         try:
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng kiểm tra ban.", app_name)
@@ -257,9 +227,7 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
             log_callback(f"[{app_name}] tài khoản đã bị ban", app_name) # As in snippet
             return
         except Exception:
-            asss = 1 # Keep as per snippet
-        
-        # Keeping the `while True` loop structure as in the provided snippet
+            asss = 1 
         while True:
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng chờ quá tải.", app_name)
@@ -276,20 +244,25 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                     break
                 except Exception:
                     continue
-                
         import time 
         time_start = time.time()
+        a = 0 
         while True:
+            if a == 7:
+                a = 0
+                await xoa(page_vm)
+                await Tao_may(page_vm)
+                await Tem(page_vm)
+                return
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng chờ tải máy ảo.", app_name)
             try:
-                # Using snippet's more specific locator for iframe content
                 await expect(page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div")).to_be_visible(timeout=15000) # As in snippet
                 log_callback(f"[{app_name}] Máy ảo '{app_name}' đã load và Files Explorer hiển thị.", app_name)
                 break
             except Exception as e:
                 time_end = time.time()
-                if time_end - time_start >= 150: 
+                if time_end - time_start >= 180: 
                     log_callback(f"[{app_name}] hết thời gian chờ cần load lại trang", app_name)
                     await page_vm.reload()
                     time_start = time.time()
@@ -302,53 +275,122 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 except Exception:
                     log_callback(f"[{app_name}] Đang chờ máy ảo '{app_name}' load hoặc không phát hiện lỗi đặc biệt, tiếp tục chờ...", app_name) # As in snippet
                     await asyncio.sleep(2) 
-        await page_vm.wait_for_load_state('domcontentloaded')
-        
-        # Open terminal and check if it's there
-        # Keeping the `while True` loop structure as in the provided snippet
-        while True:
+     except Exception as e:
+        log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
+        return       
+     await page_vm.wait_for_load_state('load')
+         # hàm làm việc với tem   
+    async def Tem(page_vm):  # 1 là xóa 2 thành công 4 là dừng
+     so_lan_load = 0
+     try:   
+        while True: # mo tem
+            log_callback(f"[{app_name}] Thực hiện vòng lặp 1.", app_name)
+            if stop_event.is_set():
+              log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+              return 
+              break
+            if so_lan_load == 5:
+              so_lan_load = 0
+              await xoa(page_vm)
+              await Tao_may(page_vm)
+              await Tem(page_vm)
+              return
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng mở Terminal.", app_name)
                 return
             try:
-                # Using snippet's locators
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div").click(force=True)
+                log_callback(f"[{app_name}] đã click vào menu .", app_name)
+            except Exception :   
+                log_callback(f"[{app_name}] đã click vào menu nhưng thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')
+                continue
+            try:    
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Terminal", exact=True).click(force=True)           
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="New Terminal Ctrl+Shift+C").click(force=True)
-                await expect(page_vm.locator("#iframe-container iframe").first.content_frame.locator(".terminal-wrapper")).to_be_visible(timeout=30000) # As in snippet
-                log_callback(f"[{app_name}] Đã có tem.", app_name) # As in snippet
-                await asyncio.sleep(5) # As in snippet
+                log_callback(f"[{app_name}] Bước 2 thành công.", app_name)
+            except Exception : 
+                log_callback(f"[{app_name}] bước 2 trong mở tem thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:     
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="New Terminal Ctrl+Shift+C").click(force=True) 
+                log_callback(f"[{app_name}] đã click mơ tem.", app_name)
+            except Exception : 
+                log_callback(f"[{app_name}] click mở tem  nhưng thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:   
+                await expect(page_vm.locator("#iframe-container iframe").first.content_frame.locator(".terminal-wrapper")).to_be_visible(timeout=30000) 
+                
+                log_callback(f"[{app_name}] Đã có tem.", app_name)
+                await asyncio.sleep(5) 
                 break
             except Exception :
-                # Reload if error, as in snippet
+                so_lan_load = so_lan_load + 1
+                log_callback(f"[{app_name}] không tìm thấy tem.", app_name)
                 await page_vm.reload()
-                await page_vm.wait_for_load_state('domcontentloaded')
-        while True:
+                await page_vm.wait_for_load_state('load')
+                continue
+        so_lan_load = 0
+        while True:# điền githup
+            log_callback(f"[{app_name}] Thực hiện vòng lặp 2.", app_name)
+            if stop_event.is_set():
+             log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+             return None
+            if so_lan_load == 5:
+                so_lan_load = 0
+                await xoa(page_vm)
+                await Tao_may(page_vm)
+                await Tem(page_vm)
+                return
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng nhập lệnh Git.", app_name)
                 return
             try: 
-                # Using snippet's locators
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"])
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill(LINK_GIT)
-                await page_vm.keyboard.press("Enter",delay = 1) # As in snippet
-                log_callback(f"[{app_name}] đã nhập xong.", app_name) # As in snippet
-                await asyncio.sleep(10) 
-                
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
+            except Exception as e:
+                so_lan_load = so_lan_load + 1
+                log_callback(f"[{app_name}] Không tìm thấy chỗ nhập", app_name)
+                await page_vm.reload()    
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:    
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill(LINK_GIT,timeout = 30000)
+                await page_vm.keyboard.press("Enter",delay = 1) 
+                log_callback(f"[{app_name}] đã nhập xong.", app_name)                
+                await asyncio.sleep(10)        
                 log_callback(f"[{app_name}] Đã hoàn thành hành động.", app_name)
                 break
             except Exception as e:
+                so_lan_load = so_lan_load + 1
                 log_callback(f"[{app_name}] Lỗi khi nhập lệnh Git: {e}. Đang reload...", app_name)
                 await page_vm.reload()
-        
-    except Exception as e:
-        # Reverted to snippet's print format for final error, but using log_callback
+                await page_vm.wait_for_load_state('load')  
+                continue
+        return  
+     except Exception as e:
         log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
-    finally:
-        if page_vm:
-            await page_vm.close()
-            # Reverted to snippet's print format for final message, but using log_callback
-            log_callback(f"Đã đóng page của máy ảo '{app_name}'.", app_name)
+    try:
+     await Tao_may(page_vm)
+     await Tem(page_vm)
+     while True:
+         if stop_event.is_set():
+          log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+          return None
+         await asyncio.sleep(10)
+    except Exception as e:
+        log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
+        return 
+
+        
+    
 
 
 async def run_automation(accounts, LINK_GIT, num_flutter_apps, log_callback, status_callback, create_vm_log_sections_callback, stop_event: threading.Event):
@@ -455,32 +497,27 @@ class PlaywrightGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Công Cụ Tự Động Hóa IDX")
-        self.root.geometry("1200x800") # Increased window size for better view
-        self.root.option_add("*Font", "Arial 10") # Default font
+        self.root.geometry("1200x800")
+        self.root.option_add("*Font", "Arial 10") 
 
-        self.log_widgets = {} # Dictionary to store ScrolledText widgets for each log section
-        self.vm_log_frames = [] # List to hold frames for VM logs for easy clearing
-        self.automation_thread = None # To hold the reference to the automation thread
-        self.stop_event = threading.Event() # Event to signal stopping the automation
+        self.log_widgets = {} 
+        self.vm_log_frames = []
+        self.automation_thread = None 
+        self.stop_event = threading.Event()
 
         self.create_widgets()
 
     def create_widgets(self):
-        # Input and Control Frame
         top_frame = ttk.Frame(self.root, padding=10)
         top_frame.pack(padx=10, pady=10, fill="x")
-
         input_frame = ttk.LabelFrame(top_frame, text="Thông Tin Đăng Nhập & Cấu Hình", padding=10)
         input_frame.pack(side="left", fill="x", expand=True, padx=5, pady=5)
-
-        # Multi-account Entry (Gmail:Mật khẩu per line)
-        ttk.Label(input_frame, text="Danh sách tài khoản (Gmail:Mật khẩu mỗi dòng):").grid(row=0, column=0, padx=5, pady=2, sticky="nw")
+        ttk.Label(input_frame, text="Danh sách tài khoản (Gmail:Mật khẩu):").grid(row=0, column=0, padx=5, pady=2, sticky="nw")
         self.accounts_entry = scrolledtext.ScrolledText(input_frame, wrap=tk.WORD, width=50, height=5, font=("Arial", 9))
         self.accounts_entry.grid(row=0, column=1, padx=5, pady=2, sticky="nsew")
         # Example accounts (replace with your actual accounts)
-        self.accounts_entry.insert(tk.END, "email1@gmail.com:password123\n")
-        self.accounts_entry.insert(tk.END, "email2@gmail.com:password456\n")
-        self.accounts_entry.insert(tk.END, "email3@gmail.com:password789")
+        self.accounts_entry.insert(tk.END, "email1@gmail.com:Ducngocvs123\n")
+
         input_frame.grid_rowconfigure(0, weight=1) # Allow accounts_entry to expand
         input_frame.grid_columnconfigure(1, weight=1)
 
@@ -489,13 +526,13 @@ class PlaywrightGUI:
         ttk.Label(input_frame, text="Lệnh Git:").grid(row=1, column=0, padx=5, pady=2, sticky="w")
         self.git_link_entry = ttk.Entry(input_frame, width=40)
         self.git_link_entry.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
-        self.git_link_entry.insert(0, "curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | sudo bash")
+        self.git_link_entry.insert(0, "curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash")
 
         # Number of Flutter Apps Entry
         ttk.Label(input_frame, text="Số lượng máy ảo Flutter (tối đa 10):").grid(row=2, column=0, padx=5, pady=2, sticky="w")
         self.num_apps_entry = ttk.Entry(input_frame, width=10)
         self.num_apps_entry.grid(row=2, column=1, padx=5, pady=2, sticky="w")
-        self.num_apps_entry.insert(0, "3") # Default to 3 VMs for quick testing
+        self.num_apps_entry.insert(0, "10") # Default to 3 VMs for quick testing
 
         input_frame.columnconfigure(1, weight=1)
 
