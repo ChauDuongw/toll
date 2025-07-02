@@ -90,7 +90,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo chào mừng.", "general")
                 return None, None
             # Using timeout from snippet for welcome message (100s)
-            await expect(page.locator("span").filter(has_text="Chào mừng bạn đến với tài kho")).to_be_visible(timeout=100000)
+            await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=100000)
             log_callback("Phát hiện thông báo 'Chào mừng bạn đến với tài khoản', đang click 'Tôi hiểu'.", "general")
             # Using timeout from snippet for 'Tôi hiểu' button (100s)
             await page.get_by_role("button", name="I understand").click(timeout=100000)
