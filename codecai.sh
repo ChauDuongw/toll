@@ -1,5 +1,5 @@
 #!/bin/bash
-# curl -sL https://raw.githubusercontent.com/ChauDuongw/moungdungidx/refs/heads/main/a.sh | bash
+# curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/codecai.sh | bash
 
 
 # --- Cấu hình ---
