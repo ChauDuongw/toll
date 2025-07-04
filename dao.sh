@@ -2,8 +2,8 @@
 
 # Địa chỉ ví của bạn
 WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
-# Địa chỉ pool MỚI - Nanopool (Máy chủ Singapore) với cổng SSL/TLS
-POOL_ADDRESS="xmr-sg.nanopool.org:14444"
+# Địa chỉ pool - SupportXMR.com với cổng 443 (SSL/TLS)
+POOL_ADDRESS="pool.supportxmr.com:443"
 
 # Tên worker (tùy chọn, bạn có thể thay đổi để dễ quản lý)
 WORKER_NAME="my_xmr_worker"
