@@ -4,7 +4,7 @@
 
 # --- Cấu hình ---
 # URL của file code Python cần "cài đặt" (tool.py)
-PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/test.py"
+PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/tool.py"
 # Tên file code Python sau khi tải về (bạn muốn đặt là a1.py)
 PYTHON_CODE_FILENAME="a1.py"
 
