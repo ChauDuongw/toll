@@ -2,8 +2,9 @@
 
 # Địa chỉ ví của bạn
 WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
-# Địa chỉ pool
-POOL_ADDRESS="pool.hashvault.pro:443"
+# Địa chỉ pool MỚI - Nanopool (Máy chủ Singapore) với cổng SSL/TLS
+POOL_ADDRESS="xmr-sg.nanopool.org:14444"
+
 # Tên worker (tùy chọn, bạn có thể thay đổi để dễ quản lý)
 WORKER_NAME="my_xmr_worker"
 # Phiên bản XMRig để tải xuống
@@ -89,7 +90,7 @@ cat << EOF > config.json
     "donate-level": 1,
     "user-agent": null,
     "syslog": false,
-    "log-file": "$LOG_FILE",  // <-- Đã thêm dòng này để lưu log vào tệp
+    "log-file": "$LOG_FILE",
     "log-level": 2,
     "background": false,
     "tls": {
