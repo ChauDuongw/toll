@@ -384,8 +384,8 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
          if stop_event.is_set():
           log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
           return None
-         await asyncio.sleep(900)
-         await page_vm.reload()
+         await asyncio.sleep(120)
+         return
          try:
              await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=20000)
              return
