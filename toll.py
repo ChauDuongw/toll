@@ -384,15 +384,17 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
          if stop_event.is_set():
           log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
           return None
-         await asyncio.sleep(10)
+         await asyncio.sleep(1800)
+         await page_vm.reload()
+         try:
+             await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=20000)
+             return
+         except Exception as e:
+             continue
+   
     except Exception as e:
         log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
         return 
-
-        
-    
-
-
 async def run_automation(accounts, LINK_GIT, num_flutter_apps, log_callback, status_callback, create_vm_log_sections_callback, stop_event: threading.Event):
     """
     Main function to orchestrate the entire automation process for multiple accounts.
