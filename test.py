@@ -25,7 +25,7 @@ STATUS_COLOR = {
     "paused": "purple",
     "hidden": "darkgreen",
 }
-CONCURRENT_BROWSERS_LIMIT = 4  # ĐÃ GIẢM: Số lượng trình duyệt tối đa chạy đồng thời (điều chỉnh theo cấu hình máy)
+CONCURRENT_BROWSERS_LIMIT = 1  # ĐÃ GIẢM: Số lượng trình duyệt tối đa chạy đồng thời (điều chỉnh theo cấu hình máy)
 
 DEFAULT_TIMEOUT_MS = 30000 # Có thể giảm timeout mặc định nếu mạng ổn định
 LONG_TIMEOUT_MS = 60000    # Giảm timeout dài hơn cho các thao tác tải trang
