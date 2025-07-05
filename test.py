@@ -13,7 +13,7 @@ from playwright.async_api import async_playwright, Playwright, BrowserContext, P
 async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_callback, stop_event: threading.Event):
     FIXED_VIEWPORT = {'width': 1024, 'height': 768}
     def get_random_browser_config_inner():
-        logging.basicConfig(level= logging.info, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         DIVERSE_LINUX_CHROME_USER_AGENTS = [
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -52,10 +52,8 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
         page = await context.new_page()
 
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
-        await page.goto("https://accounts.google.com")
-
-        # Wait for page to load completely
         while True:
+            await page.goto("https://accounts.google.com")
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng tải trang.", "general")
                 return None, None
