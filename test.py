@@ -1,962 +1,771 @@
-import customtkinter as ctk
-from tkinter import messagebox, simpledialog
-import json
-import os
 import asyncio
-from playwright.async_api import async_playwright, Playwright, BrowserContext, Page,expect
-from playwright.sync_api import Error as PlaywrightError
-import shutil
+import threading
 import logging
 import random
-import sys
+import tkinter as tk
+from tkinter import ttk, scrolledtext
 import time
-# --- Cấu hình logging ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Cấu hình chung của ứng dụng ---
-PROFILES_FILE = "profiles.json"
-BASE_PROFILE_DIR = "playwright_profiles"
-STATUS_COLOR = {
-    "pending": "gray",
-    "running": "blue",
-    "success": "green",
-    "error": "red",
-    "closed": "orange",
-    "paused": "purple",
-    "hidden": "darkgreen",
-}
-CONCURRENT_BROWSERS_LIMIT = 1  # ĐÃ GIẢM: Số lượng trình duyệt tối đa chạy đồng thời (điều chỉnh theo cấu hình máy)
+from playwright.async_api import async_playwright, Playwright, BrowserContext, Page,expect
 
-DEFAULT_TIMEOUT_MS = 30000 # Có thể giảm timeout mặc định nếu mạng ổn định
-LONG_TIMEOUT_MS = 60000    # Giảm timeout dài hơn cho các thao tác tải trang
+# --- Playwright automation functions (modified to send notifications to GUI) ---
 
-# --- Hàm tiện ích ---
-def load_profiles():
-    if os.path.exists(PROFILES_FILE):
-        with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                messagebox.showwarning("Lỗi đọc file", "File profiles.json bị lỗi định dạng. Tạo file mới.")
-                logging.error("Lỗi đọc file profiles.json, có thể file bị hỏng.")
-                return {}
-    return {}
-
-def save_profiles(profiles):
-    with open(PROFILES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(profiles, f, indent=4)
-
-def create_playwright_profile_dir(email):
-    safe_email = email.replace("@", "_at_").replace(".", "_dot_").replace("/", "_slash_").replace("\\", "_backslash_").replace(" ", "_")
-    profile_dir = os.path.join(BASE_PROFILE_DIR, safe_email)
-    os.makedirs(profile_dir, exist_ok=True)
-    return profile_dir
-
-# --- Hàm đăng nhập Gmail (bất đồng bộ) ---
-async def login_gmail_async(playwright_instance: Playwright, email: str, password: str, profile_dir: str,
-                            status_callback, active_browsers: dict, pause_event: asyncio.Event):
-    """
-    Sử dụng Playwright bất đồng bộ để đăng nhập Gmail.
-    Luôn chạy ở chế độ NON-HEADLESS và quản lý ẩn/hiện cửa sổ.
-    Giữ BrowserContext mở trong active_browsers.
-    """
-    status_callback(email, "running", "Đang xử lý...")
-    browser_context = None
-    page = None
-
-    # CÁC ĐỐI SỐ TỐI ƯU HƠN CHO CHROMIUM
-    chrome_args = [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        # "--disable-gpu", # Giữ nếu không có GPU hoặc gặp vấn đề, xóa nếu muốn dùng GPU để tăng tốc rendering
-        "--disable-dev-shm-usage",
-        "--no-zygote",
-        "--disable-features=site-per-process",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-notifications",
-        "--disable-popup-blocking",
-        "--disable-infobars",
-        "--disable-blink-features=AutomationControlled",
-        "--window-size=800,600", # ĐÃ GIẢM KÍCH THƯỚC CỬA SỔ
-        "--disable-background-networking",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-renderer-backgrounding",
-        "--disable-breakpad",
-        "--disable-component-update",
-        "--disable-domain-reliability",
-        "--disable-sync",
-        "--enable-automation",
-        "--disable-extensions",
-        "--disable-software-rasterizer",
-        "--mute-audio",
-        "--autoplay-policy=no-user-gesture-required", # Thêm để tắt autoplay video
-        # "--remote-debugging-port=9222" # Chỉ dùng cho debug, không cho production
+async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_callback, stop_event: threading.Event):
+    FIXED_VIEWPORT = {'width': 1024, 'height': 768}
+    def get_random_browser_config_inner():
+        logging.basicConfig(level= logging.info, format='%(asctime)s - %(levelname)s - %(message)s')
+        DIVERSE_LINUX_CHROME_USER_AGENTS = [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     ]
-
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-
+        selected_user_agent = random.choice(DIVERSE_LINUX_CHROME_USER_AGENTS)
+        selected_viewport = FIXED_VIEWPORT
+        base_args = [
+            "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-zygote",
+            "--disable-features=site-per-process", "--disable-accelerated-2d-canvas", "--no-first-run",
+            "--no-default-browser-check", "--disable-notifications", "--disable-popup-blocking",
+            "--disable-infobars", "--disable-blink-features=AutomationControlled",
+            "--disable-background-networking", "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
+            "--disable-breakpad", "--disable-component-update", "--disable-domain-reliability",
+            "--disable-sync", "--enable-automation", "--disable-extensions",
+            "--disable-software-rasterizer", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
+        ]
+        chrome_args = base_args + [f"--window-size={selected_viewport['width']},{selected_viewport['height']}"]
+        random.shuffle(chrome_args)
+        return selected_user_agent, selected_viewport, chrome_args
+    browser_instance: Playwright.Browser | None = None
+    browser_context: BrowserContext | None = None
+    page: Page | None = None
+    current_user_agent, current_viewport, current_chrome_args = get_random_browser_config_inner()
     try:
-        logging.info(f"[{email}] Đang kiểm tra trình duyệt...")
+        browser = await playwright.chromium.launch(
+                headless= False, # Chạy ở chế độ headless
+                args=current_chrome_args)
+        context = await browser.new_context(
+                user_agent=current_user_agent,
+                viewport=current_viewport)
+        page = await context.new_page()
 
-        if email in active_browsers:
-            browser_context = active_browsers[email]
-            status_callback(email, "running", "Trình duyệt đang chạy, kiểm tra trạng thái.")
-            logging.info(f"[{email}] Trình duyệt đã được tái sử dụng.")
-        else:
-            logging.info(f"[{email}] Khởi tạo persistent context mới tại {profile_dir} (NON-HEADLESS)...")
-            browser_context = await playwright_instance.chromium.launch_persistent_context(
-                user_data_dir=profile_dir,
-                headless=False, # LUÔN CHẠY NON-HEADLESS
-                args=chrome_args,
-                timeout=LONG_TIMEOUT_MS,
-                user_agent=user_agent,
-                viewport={'width': 800, 'height': 600} # ĐÃ GIẢM KÍCH THƯỚC VIEWPORT
-            )
-            active_browsers[email] = browser_context # LƯU CONTEXT VÀO active_browsers
-            logging.info(f"[{email}] Đã khởi tạo context.")
+        log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
+        await page.goto("https://accounts.google.com")
 
-        # Lấy hoặc tạo trang đầu tiên trong context
-        
-        page = await browser_context.new_page() 
-        # Bước 2: Điều hướng đến trang đăng nhập 
-        logging.info(f"[{email}] Đi đến trang đăng nhập Google...") # thông báo
-        await page.goto("https://accounts.google.com", timeout=0) # mơt trang đăng nhập
-        await page.wait_for_timeout(random.uniform(300, 1000)) # GIẢM THỜI GIAN CHỜ NGẪU NHIÊN
-        await page.fill('input[type="email"]', email, timeout=0) # nhập vào ô email
-        await page.wait_for_timeout(random.uniform(300, 1000)) # GIẢM THỜI GIAN CHỜ NGẪU NHIÊN
-        await page.click('#identifierNext', timeout=DEFAULT_TIMEOUT_MS) # click vào đồng ý
-        # đây có nhập mã capcha 
-        await page.wait_for_timeout(random.uniform(500, 1500)) # GIẢM THỜI GIAN CHỜ NGẪU NHIÊN
-        logging.info(f"[{email}] Đã nhập email và click tiếp theo.") # thông báo hoàn thành 
-        await page.fill('input[type="password"]', password, timeout=0) # nhập ô mật khẩu 
-        await page.wait_for_timeout(random.uniform(300, 1000)) # delay ngẫu nhiên
-        await page.wait_for_selector('#passwordNext', state='visible', timeout=0) 
-        await page.click('#passwordNext', timeout=0)
-        await page.wait_for_timeout(random.uniform(500, 1500)) # GIẢM THỜI GIAN CHỜ NGẪU NHIÊN
-        logging.info(f"[{email}] Đã nhập mật khẩu và click tiếp theo.")
-        try:
-            await page.get_by_role("button", name="I understand").click(timeout=5000) # nhập nút chưa hiểu 
-        except Exception:
-            logging.info(f"[{email}] Không tìm thấy nút 'Tôi hiểu' hoặc đã bỏ qua.")
-            await page.wait_for_timeout(random.uniform(300, 1000))
-            pass
-        await asyncio.sleep(5)
-        page = await browser_context.new_page()
-        await page.goto("https://idx.google.com")# mở idx  
-        await page.locator("label").filter(has_text="I accept the terms and").click(position={"x": 5, "y": 5})
-        await asyncio.sleep(random.uniform(1,3))
-        await page.get_by_role("button", name="Confirm").click()
-        await page.goto("https://idx.google.com/devprofile")
-        await asyncio.sleep(random.uniform(1,3))
-        await page.get_by_role("textbox", name="City, Country").click()
-        await asyncio.sleep(random.uniform(1,3))
-        await page.get_by_role("textbox", name="City, Country").fill("ha")
-        await page.get_by_text("HanoiVietnam").click()
-        await asyncio.sleep(random.uniform(1,3))
-        await page.get_by_role("combobox").select_option("Architect")
-        await asyncio.sleep(random.uniform(1,3))
-        await page.locator("label").filter(has_text="Stay up to date on new").click()
-        await asyncio.sleep(random.uniform(1,3))
-        await page.get_by_role("button", name="Continue").click()    
-        await asyncio.sleep(10)             
-        await page.get_by_role("button", name="Continue").click()
-        # đồng ý điều khoản 
-        await page.close()
-        page1 = await browser_context.new_page()
-        await page1.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page1.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page1.get_by_role("textbox", name="My Flutter App").fill(f"a1")
-        await asyncio.sleep(1)
-        await page1.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 2
-        page2 = await browser_context.new_page()
-        await page2.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page2.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page2.get_by_role("textbox", name="My Flutter App").fill(f"a2")
-        await asyncio.sleep(1)
-        await page2.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 3
-        page3 = await browser_context.new_page()
-        await page3.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page3.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page3.get_by_role("textbox", name="My Flutter App").fill(f"a3")
-        await asyncio.sleep(1)
-        await page3.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 4
-        page4 = await browser_context.new_page()
-        await page4.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page4.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page4.get_by_role("textbox", name="My Flutter App").fill(f"a4")
-        await asyncio.sleep(1)
-        await page4.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 5
-        page5 = await browser_context.new_page()
-        await page5.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page5.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page5.get_by_role("textbox", name="My Flutter App").fill(f"a5")
-        await asyncio.sleep(1)
-        await page5.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 6
-        page6 = await browser_context.new_page()
-        await page6.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page6.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page6.get_by_role("textbox", name="My Flutter App").fill(f"a6")
-        await asyncio.sleep(1)
-        await page6.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 7
-        page7 = await browser_context.new_page()
-        await page7.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page7.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page1.reload()
-        await page2.reload()
-        await page3.reload()
-        await page4.reload()
-        await page5.reload()
-        await page7.get_by_role("textbox", name="My Flutter App").fill(f"a7")
-        await asyncio.sleep(300)
-        await page6.reload()
-        await page7.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        #tao may 8 
-        page8 = await browser_context.new_page()
-        await page8.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page8.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page1.reload()
-        await page2.reload()
-        await page3.reload()
-        await page4.reload()
-        await page5.reload()
-        await page6.reload()
-        await page8.get_by_role("textbox", name="My Flutter App").fill(f"a8")
-        await asyncio.sleep(300)
-        await page7.reload()
-        await page8.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        #tao may 9
-        page9 = await browser_context.new_page()
-        await page9.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page9.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page1.reload()
-        await page2.reload()
-        await page3.reload()
-        await page4.reload()
-        await page5.reload()
-        await page6.reload()
-        await page7.reload()
-        await page9.get_by_role("textbox", name="My Flutter App").fill(f"a9")
-        await asyncio.sleep(300)
-        await page8.reload()
-        await page9.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
-        # tao may 10
-        page10 = await browser_context.new_page()
-        await page10.goto("https://idx.google.com/new/flutter")
-        await asyncio.sleep(1)
-        await page10.get_by_role("textbox", name="My Flutter App").click()
-        await asyncio.sleep(1)
-        await page1.reload()
-        await page2.reload()
-        await page3.reload()
-        await page4.reload()
-        await page5.reload()
-        await page6.reload()
-        await page7.reload()
-        await page8.reload()
-        await page10.get_by_role("textbox", name="My Flutter App").fill(f"a10")
-        await asyncio.sleep(300)
-        await page9.reload()
-        await page10.get_by_role("button", name="Create").click()
-        await asyncio.sleep(1)
+        # Wait for page to load completely
         while True:
-            await asyncio.sleep(120)
-            await page1.reload()
-            await page2.reload()
-            await page3.reload()
-            await page4.reload()
-            await page5.reload()
-            await page6.reload()
-            await page7.reload()
-            await page8.reload()   
-            await page9.reload()
-            await page10.reload()
-            
-        
-        # tạo máy ảo       
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng tải trang.", "general")
+                return None, None
+            try:
+                # Using the timeout from the provided snippet, which is 30s
+                await page.wait_for_load_state('domcontentloaded', timeout=30000)
+                break
+            except Exception:
+                log_callback("Tải trang đăng nhập Google bị lỗi, đang reload...", "general")
+                await page.reload()
 
+        log_callback("Đang chờ form đăng nhập xuất hiện...", "general")
+        max_retries = 3
+        for attempt in range(max_retries):
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ form đăng nhập.", "general")
+                return None, None
+            try:
+                # Using the timeout from the provided snippet, which is 120s
+                await expect(page.get_by_text("Sign inUse your Google Account")).to_be_visible(timeout=120000)
+                break
+            except Exception:
+                log_callback(f"Không tìm thấy form đăng nhập (thử {attempt+1}/{max_retries}), đang thử goto lại...", "general")
+                # Using specific URL from snippet
+                await page.goto("https://accounts.google.com/v3/signin")
+                if attempt == max_retries - 1:
+                    raise Exception("Không thể tìm thấy form đăng nhập sau nhiều lần thử.")
+
+        await page.get_by_role("textbox", name="Email or phone").fill(GMAIL)
+        await page.get_by_role("button", name="Next").click()
+
+        log_callback("Đang chờ trường mật khẩu...", "general")
+
+        try:
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng kiểm tra tài khoản.", "general")
+                return None, None
+            # Keep existing check for "Couldn't find your Google Account"
+            await expect(page.locator('div[aria-live="assertive"]')).to_have_text("Couldn't find your Google Account", timeout=5000)
+            log_callback("Lỗi: Không tìm thấy tài khoản Google của bạn.", "general")
+            if browser:
+                await browser.close()
+            return None, None
+        except Exception:
+            pass # No error, continue
+
+        # Using timeout from snippet for password fill (300s, will cap at Playwright default if too high)
+        await page.get_by_role("textbox", name="Enter your password").fill(MAT_KHAU, timeout=300000)
+        await page.get_by_role("button", name="Next").click()
+
+        try:
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo chào mừng.", "general")
+                return None, None
+            # Using timeout from snippet for welcome message (100s)
+            await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=100000)
+            log_callback("Phát hiện thông báo 'Chào mừng bạn đến với tài khoản', đang click 'Tôi hiểu'.", "general")
+            # Using timeout from snippet for 'Tôi hiểu' button (100s)
+            await page.get_by_role("button", name="I understand").click(timeout=100000)
+        except Exception:
+            log_callback("Không có thông báo 'Chào mừng' hoặc đã xử lý, đang thử goto IDX.", "general")
+
+        await page.close()
+        log_callback(f"Đăng nhập Gmail '{GMAIL}' thành công và session đã được lưu vào context.", "general")
+        log_callback("Đang chờ chuyển hướng tới IDX...", "general")
+        return context, browser
     except Exception as e:
-        logging.info(email, "error", f"[{email}] Lỗi hệ thống không mong muốn: {e}")
-        logging.critical(f"[{email}] Lỗi hệ thống không mong muốn: {e}", exc_info=True)
+        log_callback(f"Lỗi trong quá trình đăng nhập Gmail '{GMAIL}': {e}", "general")
+        if browser:
+            await browser.close()
+        return None, None
     finally:
-        pass
+        if stop_event.is_set() and browser:
+            await browser.close() # Ensure browser is closed on stop signal
 
-# --- Giao diện ứng dụng CustomTkinter ---
+async def handle_idx_initial_setup(context, log_callback, stop_event: threading.Event):
+    if stop_event.is_set():
+        log_callback("Đã nhận tín hiệu dừng.", "general")
+        return
+    page = await context.new_page()
+    try:
+        log_callback("Đang kiểm tra thông báo chào mừng Firebase Studio", "general")
+        await page.goto("https://idx.google.com", wait_until="domcontentloaded")
+        try:
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng.", "general")
+                return
+            await expect(page.get_by_role("heading", name="Welcome to Firebase Studio, a")).to_be_visible(timeout=150000)
+            log_callback("Phát hiện thông báo .", "general")
+            element_locator = page.get_by_text("I accept the terms and")
+            await expect(element_locator).to_be_visible()
+            box = await element_locator.bounding_box()
+            if box:
+                offset_x = 5  
+                offset_y = 5  
+                x_click = box['x'] + offset_x
+                y_click = box['y'] + offset_y
+                x_click = max(box['x'], min(x_click, box['x'] + box['width'] - 1))
+                y_click = max(box['y'], min(y_click, box['y'] + box['height'] - 1))
+                await element_locator.click(position={'x': offset_x, 'y': offset_y}, force=True)
+            
+            await page.get_by_role("button", name="Confirm").click()
+            log_callback("Đã click nút 'Confirm'.", "general")
+            log_callback("Hoàn tất ","general" )
 
-class GmailLoginApp(ctk.CTk):
-    def __init__(self, loop):
-        super().__init__()
+        except Exception:
+            log_callback("Không có thông báo chào mừng .", "general")
 
-        self.loop = loop
-        self.semaphore = asyncio.Semaphore(CONCURRENT_BROWSERS_LIMIT)
+        log_callback("Đang điền thông tin hồ sơ nhà phát triển", "general")
+        while True: 
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng.", "general")
+                return
+            try:
+                await page.goto("https://studio.firebase.google.com/devprofile", wait_until="load")
 
-        self.title("Ứng dụng Đăng nhập Gmail Đa hồ sơ")
-        self.geometry("1200x750")
+                await page.get_by_role("textbox", name="City, Country").click()
+                await page.get_by_role("textbox", name="City, Country").fill("han") 
+                await expect(page.get_by_text("HanoiVietnam")).to_be_visible(timeout=5000)
+                await page.get_by_text("HanoiVietnam").click()
+                await page.get_by_role("combobox").select_option("Architect") 
+                await page.locator("label").filter(has_text="Stay up to date on new").click()
+                log_callback("Đã điền thông tin và chọn các tùy chọn dev profile.", "general")
+                break 
+            except Exception as e:
+                log_callback(f"Lỗi khi điền form dev profile: {e}", "general")
+        try: 
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng click Continue (1).", "general")
+                return
+            await page.get_by_role("button", name="Continue").click()
+            log_callback("Đã click nút 'Continue' .", "general")
+        except Exception as e:
+            log_callback(f"Lỗi khi click nút 'Continue' (1) trong form dev profile: {e}", "general")
+        try:
+            if stop_event.is_set():
+                log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo earned.", "general")
+                return
+            await expect(page.get_by_role("heading", name="You earned your first")).to_be_visible(timeout=30000)
+            log_callback("Đã nhận được thông báo 'You earned your first'.", "general")
+            await page.get_by_role("button", name="Continue").click()
+            log_callback("Đã click nút 'Continue' (2).", "general")
+        except Exception as e:
+            log_callback(f"Thông báo 'You earned your first' không xuất hiện hoặc lỗi khi click 'Continue' (2): {e}", "general")
+            try:
+                if stop_event.is_set():
+                    log_callback("Đã nhận tín hiệu dừng.", "general")
+                    return
+                await page.get_by_role("button", name="Continue").click(timeout=5000)
+                log_callback("Đã thử click nút 'Continue' (2) .", "general")
+            except Exception:
+                pass 
+    except Exception as e:
+        log_callback(f"Lỗi trong quá trình xử lý thiết lập ban đầu của IDX: {e}", "general")
+    finally:
+        if page:
+            await page.close()
+async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback, stop_event: threading.Event, app_type: str = "flutter"):
+    page_vm = None
+    page_vm = await context.new_page() 
+    
+    async def xoa(page_vm):
+            url = page_vm.url
+            parts = url.split('/')
+            diemnhan = parts[-1]
+            await page_vm.goto("https://idx.google.com/")
+            await page_vm.locator("workspace").filter(has_text=diemnhan).get_by_label("Workspace actions").click()
+            await page_vm.get_by_role("menuitem", name="Delete").click()
+            await page_vm.get_by_role("textbox", name="delete").click()
+            await page_vm.get_by_role("textbox", name="delete").fill("delete")
+            await page_vm.get_by_role("button", name="Delete").click()
+    async def Tao_may(page_vm):
+     if stop_event.is_set():
+        log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Bỏ qua tạo máy ảo.", app_name)
 
-        self.grid_columnconfigure(0, weight=1, minsize=400)
-        self.grid_columnconfigure(1, weight=1, minsize=600)
-        self.grid_rowconfigure(0, weight=1)
+     try:
+        if app_type == "flutter":
+            log_callback(f"[{app_name}] Đang tạo máy ảo Flutter App tên '{app_name}'...", app_name)
+            await page_vm.goto("https://idx.google.com/new/flutter", wait_until="load")
+            await page_vm.get_by_role("textbox", name="My Flutter App").fill(app_name)
+            await page_vm.get_by_role("button", name="Create").click()
+        else:
+            log_callback(f"[{app_name}] Lỗi: Loại app không hợp lệ: {app_type}", app_name)
+            return
+        try:
+            if stop_event.is_set():
+                log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng kiểm tra ban.", app_name)
+                return
+            await expect(page_vm.get_by_text("We've detected suspicious activity on one of your workspaces")).to_be_visible(timeout=2000)
+            log_callback(f"[{app_name}] tài khoản đã bị ban", app_name) # As in snippet
+            return
+        except Exception:
+            asss = 1 
+        while True:
+            if stop_event.is_set():
+                log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng chờ quá tải.", app_name)
+                return
+            try:
+                await expect(page_vm.get_by_text("Rate limit exceeded. Please")).to_be_visible(timeout=20000) # As in snippet
+                log_callback(f"[{app_name}] Máy ảo đang gặp quá tải máy ảo", app_name) # As in snippet
+                await asyncio.sleep(300) 
+                await page_vm.get_by_role("button", name="Create").click()
+            except Exception:
+                try: 
+                    await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=20000) # As in snippet
+                    log_callback(f"[{app_name}] Máy ảo đang trong giai đoạn tạo máy ảo", app_name) # As in snippet
+                    break
+                except Exception:
+                    continue
+        import time 
+        time_start = time.time()
+        a = 0 
+        while True:
+            if a == 7:
+                a = 0
+                await xoa(page_vm)
+                await Tao_may(page_vm)
+                await Tem(page_vm)
+                return
+            if stop_event.is_set():
+                log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng chờ tải máy ảo.", app_name)
+            try:
+                await expect(page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div")).to_be_visible(timeout=15000) # As in snippet
+                log_callback(f"[{app_name}] Máy ảo '{app_name}' đã load và Files Explorer hiển thị.", app_name)
+                break
+            except Exception as e:
+                time_end = time.time()
+                if time_end - time_start >= 180: 
+                    log_callback(f"[{app_name}] hết thời gian chờ cần load lại trang", app_name)
+                    await page_vm.reload()
+                    time_start = time.time()
+                    continue
+                try:
+                    await expect(page_vm.get_by_text("Error opening workspace: We")).to_be_visible(timeout=10000) 
+                    log_callback(f"[{app_name}] Phát hiện lỗi 'Error opening workspace' cho '{app_name}', đang reload...", app_name) 
+                    await page_vm.reload() 
+                    time_start = time.time()
+                except Exception:
+                    log_callback(f"[{app_name}] Đang chờ máy ảo '{app_name}' load hoặc không phát hiện lỗi đặc biệt, tiếp tục chờ...", app_name) # As in snippet
+                    await asyncio.sleep(2) 
+     except Exception as e:
+        log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
+        return       
+     await page_vm.wait_for_load_state('load')
+         # hàm làm việc với tem   
+    async def Tem(page_vm):  # 1 là xóa 2 thành công 4 là dừng
+     so_lan_load = 0
+     try:   
+        while True: # mo tem
+            log_callback(f"[{app_name}] Thực hiện vòng lặp 1.", app_name)
+            if stop_event.is_set():
+              log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+              return 
+              break
+            if so_lan_load == 5:
+              so_lan_load = 0
+              await xoa(page_vm)
+              await Tao_may(page_vm)
+              await Tem(page_vm)
+              return
+            if stop_event.is_set():
+                log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng mở Terminal.", app_name)
+                return
+            try:
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div").click(force=True)
+                log_callback(f"[{app_name}] đã click vào menu .", app_name)
+            except Exception :   
+                log_callback(f"[{app_name}] đã click vào menu nhưng thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')
+                continue
+            try:    
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Terminal", exact=True).click(force=True)           
+                log_callback(f"[{app_name}] Bước 2 thành công.", app_name)
+            except Exception : 
+                log_callback(f"[{app_name}] bước 2 trong mở tem thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:     
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="New Terminal Ctrl+Shift+C").click(force=True) 
+                log_callback(f"[{app_name}] đã click mơ tem.", app_name)
+            except Exception : 
+                log_callback(f"[{app_name}] click mở tem  nhưng thất bại.", app_name)
+                so_lan_load = so_lan_load + 1
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:   
+                await expect(page_vm.locator("#iframe-container iframe").first.content_frame.locator(".terminal-wrapper")).to_be_visible(timeout=30000) 
+                
+                log_callback(f"[{app_name}] Đã có tem.", app_name)
+                await asyncio.sleep(5) 
+                break
+            except Exception :
+                so_lan_load = so_lan_load + 1
+                log_callback(f"[{app_name}] không tìm thấy tem.", app_name)
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')
+                continue
+        so_lan_load = 0
+        while True:# điền githup
+            log_callback(f"[{app_name}] Thực hiện vòng lặp 2.", app_name)
+            if stop_event.is_set():
+             log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+             return None
+            if so_lan_load == 5:
+                so_lan_load = 0
+                await xoa(page_vm)
+                await Tao_may(page_vm)
+                await Tem(page_vm)
+                return
+            if stop_event.is_set():
+                log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng nhập lệnh Git.", app_name)
+                return
+            try: 
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
+            except Exception as e:
+                so_lan_load = so_lan_load + 1
+                log_callback(f"[{app_name}] Không tìm thấy chỗ nhập", app_name)
+                await page_vm.reload()    
+                await page_vm.wait_for_load_state('load')  
+                continue
+            try:    
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill(LINK_GIT,timeout = 30000)
+                await page_vm.keyboard.press("Enter",delay = 1) 
+                log_callback(f"[{app_name}] đã nhập xong.", app_name)                
+                await asyncio.sleep(10)        
+                log_callback(f"[{app_name}] Đã hoàn thành hành động.", app_name)
+                break
+            except Exception as e:
+                so_lan_load = so_lan_load + 1
+                log_callback(f"[{app_name}] Lỗi khi nhập lệnh Git: {e}. Đang reload...", app_name)
+                await page_vm.reload()
+                await page_vm.wait_for_load_state('load')  
+                continue
+        return  
+     except Exception as e:
+        log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
+    try:
+     await Tao_may(page_vm)
+     await Tem(page_vm)
+     while True:
+         if stop_event.is_set():
+          log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+          return None
+         await asyncio.sleep(120)
+         return
+         try:
+             await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=20000)
+             return
+         except Exception as e:
+             continue
+   
+    except Exception as e:
+        log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
+        return 
+async def run_automation(accounts, LINK_GIT, num_flutter_apps, log_callback, status_callback, create_vm_log_sections_callback, stop_event: threading.Event):
+    """
+    Main function to orchestrate the entire automation process for multiple accounts.
+    Args:
+        accounts (list): List of (email, password) tuples.
+        LINK_GIT (str): Git command.
+        num_flutter_apps (int): Number of Flutter VMs to create per account.
+        log_callback (callable): Function to send messages to the GUI.
+        status_callback (callable): Function to update the overall application status.
+        create_vm_log_sections_callback (callable): Function to create VM log sections in the GUI.
+        stop_event (threading.Event): Event to signal stopping the automation.
+    """
+    status_callback("Bắt đầu tự động hóa...", "blue")
+    
+    for i, (gmail, password) in enumerate(accounts):
+        if stop_event.is_set():
+            log_callback(f"Đã nhận tín hiệu dừng. Dừng xử lý tài khoản '{gmail}'.", "general")
+            status_callback("Đã dừng.", "red")
+            break
 
-        self.profiles = load_profiles()
-        self.active_browsers: dict[str, BrowserContext] = {}
-        self.profile_tasks: dict[str, asyncio.Task] = {}
-        self.pause_events: dict[str, asyncio.Event] = {}
-        self.playwright_global_instance: Playwright | None = None
+        log_callback(f"--- Bắt đầu xử lý tài khoản {i+1}/{len(accounts)}: {gmail} ---", "general")
+        status_callback(f"Đang xử lý tài khoản {i+1}/{len(accounts)}: {gmail}", "orange")
 
-        os.makedirs(BASE_PROFILE_DIR, exist_ok=True)
+        browser = None
+        logged_in_context = None
+        try:
+            async with async_playwright() as playwright:
+                log_callback("Bắt đầu quá trình đăng nhập Google và thiết lập ban đầu...", "general")
+                logged_in_context, browser = await perform_initial_login(gmail, password, playwright, log_callback, stop_event)
+
+                if stop_event.is_set():
+                    log_callback(f"Đã nhận tín hiệu dừng trong quá trình đăng nhập tài khoản '{gmail}'.", "general")
+                    status_callback("Đã dừng.", "red")
+                    break # Exit account loop
+                
+                if not logged_in_context:
+                    log_callback(f"Đăng nhập tài khoản '{gmail}' thất bại. Bỏ qua tài khoản này.", "general")
+                    continue # Skip to next account
+
+                status_callback(f"Đăng nhập tài khoản '{gmail}' thành công, bắt đầu thiết lập IDX.", "orange")
+                await handle_idx_initial_setup(logged_in_context, log_callback, stop_event)
+                
+                if stop_event.is_set():
+                    log_callback(f"Đã nhận tín hiệu dừng trong quá trình thiết lập IDX cho tài khoản '{gmail}'.", "general")
+                    status_callback("Đã dừng.", "red")
+                    break # Exit account loop
+
+                status_callback(f"Thiết lập IDX cho tài khoản '{gmail}' hoàn tất, bắt đầu tạo máy ảo.", "orange")
+
+                # Create VM log sections in the GUI BEFORE starting actual VM creation
+                # Only create if they don't exist yet for this run
+                create_vm_log_sections_callback(num_flutter_apps)
+
+                tasks = []
+                for j in range(1, num_flutter_apps + 1):
+                    app_name = f"a{j}" # VM names are "a1", "a2", etc.
+                    # Create tasks for each VM to run in parallel
+                    tasks.append(asyncio.create_task(create_virtual_machine(LINK_GIT, logged_in_context, app_name, log_callback, stop_event, "flutter")))
+
+                log_callback(f"Đang chuẩn bị tạo {len(tasks)} máy ảo song song cho tài khoản '{gmail}'...", "general")
+                status_callback(f"Tạo {len(tasks)} máy ảo cho '{gmail}'...", "orange")
+                await asyncio.gather(*tasks) # Run all tasks in parallel
+
+                log_callback(f"Đã hoàn thành tạo {len(tasks)} máy ảo song song và thực hiện nhiệm vụ cho tài khoản '{gmail}'.", "general")
+
+        except Exception as e:
+            log_callback(f"Lỗi không mong muốn khi xử lý tài khoản '{gmail}': {e}", "general")
+            status_callback(f"Lỗi khi xử lý tài khoản '{gmail}'!", "red")
+        finally:
+            if logged_in_context:
+                await logged_in_context.close()
+                log_callback(f"Đã đóng ngữ cảnh trình duyệt cho tài khoản '{gmail}'.", "general")
+            if browser:
+                await browser.close()
+                log_callback(f"Đã đóng trình duyệt cho tài khoản '{gmail}'.", "general")
+        
+    if not stop_event.is_set():
+        status_callback("Hoàn thành tất cả tác vụ cho tất cả tài khoản!", "green")
+    else:
+        status_callback("Đã dừng quá trình tự động hóa.", "red")
+
+
+def start_automation_thread(accounts, LINK_GIT, num_flutter_apps, log_callback, status_callback, create_vm_log_sections_callback, stop_event: threading.Event):
+    """
+    Wrapper function to run async tasks in a separate thread.
+    Creates a new event loop for this thread.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(run_automation(accounts, LINK_GIT, num_flutter_apps, log_callback, status_callback, create_vm_log_sections_callback, stop_event))
+    except Exception as e:
+        log_callback(f"Lỗi trong luồng tự động hóa: {e}", "general")
+        status_callback("Lỗi trong luồng!", "red")
+    finally:
+        loop.close()
+
+
+# --- Tkinter GUI ---
+
+class PlaywrightGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Công Cụ Tự Động Hóa IDX")
+        self.root.geometry("1200x800")
+        self.root.option_add("*Font", "Arial 10") 
+
+        self.log_widgets = {} 
+        self.vm_log_frames = []
+        self.automation_thread = None 
+        self.stop_event = threading.Event()
 
         self.create_widgets()
-        self.update_profile_listbox()
 
     def create_widgets(self):
-        self.left_frame = ctk.CTkFrame(self)
-        self.left_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
-        self.left_frame.grid_rowconfigure(0, weight=0)
-        self.left_frame.grid_rowconfigure(1, weight=1)
-        self.left_frame.grid_columnconfigure(0, weight=1)
+        top_frame = ttk.Frame(self.root, padding=10)
+        top_frame.pack(padx=10, pady=10, fill="x")
+        input_frame = ttk.LabelFrame(top_frame, text="Thông Tin Đăng Nhập & Cấu Hình", padding=10)
+        input_frame.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        ttk.Label(input_frame, text="Danh sách tài khoản (Gmail:Mật khẩu):").grid(row=0, column=0, padx=5, pady=2, sticky="nw")
+        self.accounts_entry = scrolledtext.ScrolledText(input_frame, wrap=tk.WORD, width=50, height=5, font=("Arial", 9))
+        self.accounts_entry.grid(row=0, column=1, padx=5, pady=2, sticky="nsew")
+        # Example accounts (replace with your actual accounts)
+        self.accounts_entry.insert(tk.END, "email1@gmail.com:Ducngocvs123\n")
 
-        add_bulk_frame = ctk.CTkFrame(self.left_frame)
-        add_bulk_frame.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="ew")
+        input_frame.grid_rowconfigure(0, weight=1) # Allow accounts_entry to expand
+        input_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(add_bulk_frame, text="Thêm nhiều hồ sơ (Tài khoản Mật khẩu, mỗi dòng một cặp):",
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(padx=10, pady=(10, 5), anchor="w")
-        self.bulk_entry = ctk.CTkTextbox(add_bulk_frame, height=100)
-        self.bulk_entry.pack(padx=10, pady=5, fill="x", expand=True)
 
-        add_bulk_button = ctk.CTkButton(add_bulk_frame, text="Thêm hồ sơ hàng loạt", command=self.add_bulk_profiles,
-                                        corner_radius=8, fg_color="#27AE60", hover_color="#2ECC71")
-        add_bulk_button.pack(padx=10, pady=10, anchor="e")
+        # Git Link Entry
+        ttk.Label(input_frame, text="Lệnh Git:").grid(row=1, column=0, padx=5, pady=2, sticky="w")
+        self.git_link_entry = ttk.Entry(input_frame, width=40)
+        self.git_link_entry.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
+        self.git_link_entry.insert(0, "curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash")
 
-        self.saved_profiles_frame = ctk.CTkFrame(self.left_frame)
-        self.saved_profiles_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.saved_profiles_frame.grid_columnconfigure(0, weight=1)
-        self.saved_profiles_frame.grid_rowconfigure(1, weight=1)
+        # Number of Flutter Apps Entry
+        ttk.Label(input_frame, text="Số lượng máy ảo Flutter (tối đa 10):").grid(row=2, column=0, padx=5, pady=2, sticky="w")
+        self.num_apps_entry = ttk.Entry(input_frame, width=10)
+        self.num_apps_entry.grid(row=2, column=1, padx=5, pady=2, sticky="w")
+        self.num_apps_entry.insert(0, "10") # Default to 3 VMs for quick testing
 
-        ctk.CTkLabel(self.saved_profiles_frame, text="Các hồ sơ đã lưu:",
-                     font=ctk.CTkFont(size=15, weight="bold")).grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="w")
+        input_frame.columnconfigure(1, weight=1)
 
-        self.profile_list_frame = ctk.CTkScrollableFrame(self.saved_profiles_frame, height=200)
-        self.profile_list_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        control_frame = ttk.Frame(top_frame, padding=10)
+        control_frame.pack(side="right", fill="y", padx=5, pady=5)
 
-        button_frame_left = ctk.CTkFrame(self.saved_profiles_frame, fg_color="transparent")
-        button_frame_left.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-        button_frame_left.grid_columnconfigure((0, 1, 2), weight=1)
+        self.start_button = ttk.Button(control_frame, text="Bắt Đầu Tự Động Hóa", command=self.start_automation)
+        self.start_button.pack(pady=5)
 
-        run_all_button = ctk.CTkButton(button_frame_left, text="Chạy tất cả hồ sơ", command=self.run_all_profiles,
-                                       corner_radius=8, fg_color="#3498DB", hover_color="#2980B9")
-        run_all_button.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        self.stop_button = ttk.Button(control_frame, text="Dừng Tự Động Hóa", command=self.stop_automation, state="disabled")
+        self.stop_button.pack(pady=5)
 
-        delete_selected_button = ctk.CTkButton(button_frame_left, text="Xóa hồ sơ đã chọn", command=self.delete_selected_profile,
-                                               fg_color="#E74C3C", hover_color="#C0392B", corner_radius=8)
-        delete_selected_button.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.clear_log_button = ttk.Button(control_frame, text="Xóa Nhật Ký", command=self.clear_log)
+        self.clear_log_button.pack(pady=5)
 
-        delete_all_button = ctk.CTkButton(button_frame_left, text="Xóa tất cả hồ sơ", command=self.delete_all_profiles,
-                                          fg_color="#C0392B", hover_color="#A93226", corner_radius=8)
-        delete_all_button.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+        self.status_label = ttk.Label(control_frame, text="Trạng thái: Sẵn sàng", font=("Arial", 10, "bold"), foreground="black")
+        self.status_label.pack(pady=5)
 
-        self.right_frame = ctk.CTkFrame(self)
-        self.right_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
-        self.right_frame.grid_rowconfigure(1, weight=1)
-        self.right_frame.grid_columnconfigure(0, weight=1)
+        # Main Log Area
+        self.main_log_frame = ttk.LabelFrame(self.root, text="Nhật Ký Hoạt Động", padding=10)
+        self.main_log_frame.pack(padx=10, pady=10, expand=True, fill="both")
 
-        ctk.CTkLabel(self.right_frame, text="Trạng thái trình duyệt:",
-                     font=ctk.CTkFont(size=15, weight="bold")).grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
-        self.running_status_frame = ctk.CTkScrollableFrame(self.right_frame)
-        self.running_status_frame.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        # General Log
+        self.general_log_label = ttk.Label(self.main_log_frame, text="Nhật Ký Chung:", font=("Arial", 9, "bold"))
+        self.general_log_label.grid(row=0, column=0, columnspan=2, padx=5, pady=2, sticky="w")
+        self.general_log_text = scrolledtext.ScrolledText(self.main_log_frame, wrap=tk.WORD, height=8, font=("Consolas", 8))
+        self.general_log_text.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+        self.general_log_text.config(state="disabled")
+        self.log_widgets["general"] = self.general_log_text
 
-        close_all_browsers_button = ctk.CTkButton(self.right_frame, text="Đóng tất cả trình duyệt",
-                                                  command=self.close_all_active_browsers_command,
-                                                  fg_color="#8E44AD", hover_color="#9B59B6", corner_radius=8)
-        close_all_browsers_button.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        # Configure main_log_frame grid for log areas
+        self.main_log_frame.grid_rowconfigure(1, weight=1) # General log can expand vertically
+        self.main_log_frame.grid_columnconfigure(0, weight=1)
+        self.main_log_frame.grid_columnconfigure(1, weight=1)
 
-        self.profile_status_labels = {}
+    def log_message(self, message, vm_name="general"):
+        """
+        Adds a message to the corresponding log area.
+        Uses `self.root.after` to ensure updates are on the main GUI thread.
+        Args:
+            message (str): The message to log.
+            vm_name (str): VM name (e.g., "a1", "a2") or "general" for the general log.
+        """
+        self.root.after(0, self._append_log, message, vm_name)
 
-    def update_profile_listbox(self):
-        for widget in self.profile_list_frame.winfo_children():
-            widget.destroy()
+    def _append_log(self, message, vm_name):
+        """Internal function to append message to log."""
+        if vm_name in self.log_widgets:
+            target_text = self.log_widgets[vm_name]
+            target_text.config(state="normal") # Enable editing
+            target_text.insert(tk.END, message + "\n") # Append message
+            target_text.see(tk.END) # Auto-scroll to end
+            target_text.config(state="disabled") # Disable editing
+        else:
+            print(f"Lỗi: Không tìm thấy widget nhật ký cho '{vm_name}'. Tin nhắn: {message}") # Log to console if widget not found
 
-        if not self.profiles:
-            ctk.CTkLabel(self.profile_list_frame, text="Chưa có hồ sơ nào được lưu.").pack(padx=10, pady=10)
-            return
+    def update_status(self, message, color="black"):
+        """
+        Updates the status label.
+        Uses `self.root.after` to ensure updates are on the main GUI thread.
+        """
+        self.root.after(0, self._set_status, message, color)
 
-        for email, data in self.profiles.items():
-            profile_row_frame = ctk.CTkFrame(self.profile_list_frame, fg_color="transparent")
-            profile_row_frame.pack(fill="x", padx=5, pady=2)
-            profile_row_frame.grid_columnconfigure(0, weight=1)
-            profile_row_frame.grid_columnconfigure(1, weight=0)
+    def _set_status(self, message, color):
+        """Internal function to update the status label."""
+        self.status_label.config(text=f"Trạng thái: {message}", foreground=color)
 
-            ctk.CTkLabel(profile_row_frame, text=email, anchor="w").grid(row=0, column=0, padx=5, pady=2, sticky="ew")
+    def clear_log(self):
+        """Clears all messages in all log areas and resets status."""
+        # Clear all existing log widgets
+        for vm_name, text_widget in self.log_widgets.items():
+            text_widget.config(state="normal")
+            text_widget.delete(1.0, tk.END)
+            text_widget.config(state="disabled")
+        self.update_status("Sẵn sàng", "black")
 
-            run_single_button = ctk.CTkButton(profile_row_frame, text="Chạy", width=60,
-                                              command=lambda e=email: self.run_single_profile(e),
-                                              corner_radius=6, fg_color="#28B463", hover_color="#2ECC71")
-            run_single_button.grid(row=0, column=1, padx=5, pady=2)
+        # Destroy all dynamically created VM log frames
+        for frame in self.vm_log_frames:
+            frame.destroy()
+        self.vm_log_frames.clear()
 
-            if email not in self.profile_status_labels:
-                 self.update_status_label(email, "pending", "Chưa chạy.")
+        # Reset log_widgets, keeping only "general"
+        self.log_widgets = {"general": self.general_log_text}
 
-    def add_bulk_profiles(self):
-        raw_text = self.bulk_entry.get("1.0", "end-1c").strip()
-        if not raw_text:
-            messagebox.showwarning("Thiếu dữ liệu", "Vui lòng nhập Tài khoản và Mật khẩu vào ô.")
-            return
+    def create_vm_log_sections(self, num_apps):
+        """
+        Creates new log sections for each virtual machine.
+        This function is called from the Playwright thread via root.after().
+        """
+        self.root.after(0, self._create_vm_log_sections_gui, num_apps)
 
-        new_profiles_added = 0
-        lines = raw_text.split('\n')
-        for line in lines:
+    def _create_vm_log_sections_gui(self, num_apps):
+        """Internal function to create VM log sections in the GUI."""
+        # Ensure that previous VM logs are cleared before creating new ones
+        for frame in self.vm_log_frames:
+            frame.destroy()
+        self.vm_log_frames.clear()
+        
+        # Re-initialize log_widgets to only include general log before adding VM logs
+        self.log_widgets = {"general": self.general_log_text}
+
+        # Start creating VM logs from row 2 onwards, in 2 columns
+        current_row = 2
+        for i in range(num_apps):
+            app_name = f"a{i+1}"
+            col = i % 2
+            
+            # Create a LabelFrame for each VM log section
+            vm_frame = ttk.LabelFrame(self.main_log_frame, text=f"VM {app_name} Log", padding=5)
+            vm_frame.grid(row=current_row, column=col, padx=5, pady=5, sticky="nsew")
+            self.vm_log_frames.append(vm_frame) # Keep track of frames to destroy later
+
+            vm_log_text = scrolledtext.ScrolledText(vm_frame, wrap=tk.WORD, height=6, font=("Consolas", 8)) # Smaller height for VMs
+            vm_log_text.pack(expand=True, fill="both")
+            vm_log_text.config(state="disabled")
+            self.log_widgets[app_name] = vm_log_text # Store reference to widget
+
+            # Configure grid weight for vm_frame to expand
+            vm_frame.columnconfigure(0, weight=1)
+            vm_frame.rowconfigure(0, weight=1)
+
+            if col == 1: # Move to next row after placing two columns
+                current_row += 1
+        
+        # Ensure that the rows where VM logs are placed can expand
+        for r in range(2, current_row + 1):
+            self.main_log_frame.grid_rowconfigure(r, weight=1)
+
+
+    def start_automation(self):
+        """
+        Starts the automation process in a separate thread.
+        Retrieves input information from the GUI.
+        """
+        accounts_text = self.accounts_entry.get("1.0", tk.END).strip()
+        accounts = []
+        for line in accounts_text.split('\n'):
             line = line.strip()
-            if not line:
-                continue
-
-            parts = line.split(maxsplit=1)
-
-            if len(parts) == 2:
-                email = parts[0].strip()
-                password = parts[1].strip()
-
-                if "@" not in email or "." not in email:
-                    messagebox.showwarning("Email không hợp lệ", f"Email '{email}' không đúng định dạng. Bỏ qua.")
-                    logging.warning(f"Email '{email}' không đúng định dạng. Bỏ qua.")
-                    continue
-
-                if email in self.profiles:
-                    logging.info(f"Hồ sơ {email} đã tồn tại, bỏ qua.")
-                    continue
-
-                profile_dir = create_playwright_profile_dir(email)
-                self.profiles[email] = {
-                    "password": password,
-                    "playwright_profile_dir": profile_dir
-                }
-                new_profiles_added += 1
-            else:
-                messagebox.showwarning("Lỗi định dạng", f"Dòng '{line}' không đúng định dạng 'Tài khoản Mật khẩu'. Bỏ qua.")
-                logging.warning(f"Dòng '{line}' không đúng định dạng 'Tài khoản Mật khẩu'. Bỏ qua.")
-
-        if new_profiles_added > 0:
-            save_profiles(self.profiles)
-            self.update_profile_listbox()
-            messagebox.showinfo("Thành công", f"Đã thêm {new_profiles_added} hồ sơ mới.")
-            self.bulk_entry.delete("1.0", "end")
-            logging.info(f"Đã thêm {new_profiles_added} hồ sơ mới.")
-        else:
-            messagebox.showinfo("Hoàn tất", "Không có hồ sơ mới nào được thêm (có thể đã tồn tại hoặc lỗi định dạng).")
-            logging.info("Không có hồ sơ mới nào được thêm.")
-
-    def delete_selected_profile(self):
-        email_to_delete = simpledialog.askstring("Xóa hồ sơ", "Nhập email của hồ sơ bạn muốn xóa:", parent=self)
-        if email_to_delete and email_to_delete in self.profiles:
-            if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc chắn muốn xóa hồ sơ '{email_to_delete}' không?"):
-                logging.info(f"Đang xóa hồ sơ {email_to_delete}...")
-
-                if email_to_delete in self.profile_tasks and not self.profile_tasks[email_to_delete].done():
-                    self.profile_tasks[email_to_delete].cancel()
-                    logging.info(f"Đã hủy tác vụ đang chạy cho {email_to_delete}.")
-                    del self.profile_tasks[email_to_delete]
-
-                if email_to_delete in self.active_browsers:
-                    self.loop.create_task(self._close_single_browser_context_task(email_to_delete, self.active_browsers[email_to_delete]))
-
-                profile_data = self.profiles.pop(email_to_delete, None)
-                if profile_data and "playwright_profile_dir" in profile_data:
-                    profile_dir = profile_data["playwright_profile_dir"]
-                    if os.path.exists(profile_dir):
-                        try:
-                            shutil.rmtree(profile_dir)
-                            messagebox.showinfo("Thành công", f"Thư mục hồ sơ Playwright của '{email_to_delete}' đã được xóa.")
-                            logging.info(f"Thư mục hồ sơ Playwright của '{email_to_delete}' đã được xóa.")
-                        except Exception as e:
-                            messagebox.showwarning("Cảnh báo", f"Không thể xóa thư mục hồ sơ Playwright: {e}. Vui lòng xóa thủ công.")
-                            logging.error(f"Không thể xóa thư mục hồ sơ Playwright cho {email_to_delete}: {e}")
-
-                save_profiles(self.profiles)
-                self.update_profile_listbox()
-
-                if email_to_delete in self.profile_status_labels and self.profile_status_labels[email_to_delete]["frame"].winfo_exists():
-                    self.profile_status_labels[email_to_delete]["frame"].destroy()
-                    del self.profile_status_labels[email_to_delete]
-                if email_to_delete in self.pause_events:
-                    del self.pause_events[email_to_delete]
-
-                messagebox.showinfo("Thành công", f"Hồ sơ '{email_to_delete}' đã được xóa.")
-                logging.info(f"Hồ sơ '{email_to_delete}' đã được xóa khỏi danh sách.")
-        elif email_to_delete:
-            messagebox.showerror("Lỗi", "Email không tồn tại trong danh sách hồ sơ.")
-            logging.warning(f"Người dùng cố gắng xóa email '{email_to_delete}' không tồn tại.")
-
-    def delete_all_profiles(self):
-        if not self.profiles:
-            messagebox.showinfo("Thông báo", "Không có hồ sơ nào để xóa.")
-            return
-
-        if messagebox.askyesno("Xác nhận xóa tất cả", "Bạn có chắc chắn muốn xóa TẤT CẢ hồ sơ và dữ liệu Playwright của chúng không? Hành động này không thể hoàn tác."):
-            logging.info("Đang xóa tất cả hồ sơ và trình duyệt liên quan.")
-            self.loop.create_task(self.close_all_active_browsers())
-
-            for email, task in list(self.profile_tasks.items()):
-                if not task.done():
-                    task.cancel()
-                    logging.info(f"Đã hủy tác vụ {email} trong quá trình xóa tất cả.")
-                del self.profile_tasks[email]
-
-            for email, data in list(self.profiles.items()):
-                profile_dir = data.get("playwright_profile_dir")
-                if profile_dir and os.path.exists(profile_dir):
-                    try:
-                        shutil.rmtree(profile_dir)
-                        logging.info(f"Đã xóa thư mục hồ sơ Playwright của '{email}'.")
-                    except Exception as e:
-                        messagebox.showwarning("Cảnh báo", f"Không thể xóa thư mục hồ sơ Playwright của '{email}': {e}. Vui lòng xóa thủ công.")
-                        logging.error(f"Không thể xóa thư mục hồ sơ Playwright của '{email}': {e}")
-                self.profiles.pop(email)
-                if email in self.profile_status_labels and self.profile_status_labels[email]["frame"].winfo_exists():
-                    self.profile_status_labels[email]["frame"].destroy()
-                    del self.profile_status_labels[email]
-                if email in self.pause_events:
-                    del self.pause_events[email]
-
-            save_profiles(self.profiles)
-            self.update_profile_listbox()
-            messagebox.showinfo("Thành công", "Tất cả hồ sơ và dữ liệu Playwright đã được xóa.")
-            logging.info("Đã xóa tất cả hồ sơ và dữ liệu Playwright.")
-
-    def run_single_profile(self, email: str):
-        if email not in self.profiles:
-            messagebox.showerror("Lỗi", f"Hồ sơ '{email}' không tồn tại.")
-            logging.error(f"Không thể chạy hồ sơ '{email}': không tồn tại.")
-            return
-
-        if email in self.profile_tasks and not self.profile_tasks[email].done():
-            self.profile_tasks[email].cancel()
-            logging.info(f"Đã hủy tác vụ đang chạy cho {email} để chạy lại.")
-
-        profile_data = self.profiles[email]
-        self.update_status_label(email, "pending", "Đang chờ...")
-
-        if email not in self.pause_events:
-            self.pause_events[email] = asyncio.Event()
-        self.pause_events[email].set()
-
-        task = self.loop.create_task(self._run_single_profile_task(email, profile_data, self.pause_events[email]))
-        self.profile_tasks[email] = task
-        logging.info(f"Đã tạo tác vụ chạy đơn cho {email}.")
-
-    async def _run_single_profile_task(self, email, profile_data, pause_event: asyncio.Event):
-        try:
-            async with self.semaphore:
-                if self.playwright_global_instance is None:
-                    logging.info("Khởi tạo Playwright global instance.")
-                    self.playwright_global_instance = await async_playwright().start()
-
-                await login_gmail_async(
-                    self.playwright_global_instance,
-                    email,
-                    profile_data["password"],
-                    profile_data["playwright_profile_dir"],
-                    self.update_status_label,
-                    self.active_browsers,
-                    pause_event
-                )
-
-                if email in self.active_browsers:
-                    current_status = self.profile_status_labels[email]["current_status"]
-                    if current_status != "error":
-                        self.update_status_label(email, "hidden", "Đã đăng nhập thành công (đang ẩn).")
-                    else:
-                        self.update_status_label(email, current_status, self.profile_status_labels[email]["message_label"].cget("text"))
-                logging.info(f"Tác vụ chạy đơn cho {email} đã hoàn thành.")
-        except asyncio.CancelledError:
-            self.update_status_label(email, "error", "Tác vụ đã bị hủy.")
-            logging.info(f"Tác vụ cho {email} đã bị hủy.")
-        except Exception as e:
-            self.update_status_label(email, "error", f"Lỗi tác vụ: {e}")
-            logging.error(f"Lỗi trong tác vụ chạy đơn cho {email}: {e}", exc_info=True)
-        finally:
-            if email in self.profile_tasks:
-                del self.profile_tasks[email]
-
-    def run_all_profiles(self):
-        if not self.profiles:
-            messagebox.showwarning("Không có hồ sơ", "Vui lòng thêm hồ sơ trước khi chạy.")
-            return
-
-        for email, task in list(self.profile_tasks.items()):
-            if not task.done():
-                task.cancel()
-                logging.info(f"Đã hủy tác vụ {email} khi chạy tất cả hồ sơ.")
-                del self.profile_tasks[email]
-
-        self.loop.create_task(self._run_all_profiles_task())
-        logging.info("Đã tạo tác vụ chạy tất cả hồ sơ.")
-
-    async def _run_all_profiles_task(self):
-        tasks_to_run = []
-        if self.playwright_global_instance is None:
-            logging.info("Khởi tạo Playwright global instance cho chạy tất cả hồ sơ.")
-            self.playwright_global_instance = await async_playwright().start()
-
-        for email, data in self.profiles.items():
-            self.update_status_label(email, "pending", "Đang chờ...")
-            if email not in self.pause_events:
-                self.pause_events[email] = asyncio.Event()
-            self.pause_events[email].set()
-
-            task = self.loop.create_task(self._constrained_login_task(email, data, self.pause_events[email]))
-            self.profile_tasks[email] = task
-            tasks_to_run.append(task)
-            logging.info(f"Đã thêm tác vụ cho {email} vào hàng đợi.")
-
-        if tasks_to_run:
-            await asyncio.gather(*tasks_to_run, return_exceptions=True)
-            messagebox.showinfo("Hoàn tất chạy", "Đã hoàn thành chạy tất cả hồ sơ.")
-            logging.info("Tất cả tác vụ chạy hồ sơ đã hoàn thành.")
-        else:
-            messagebox.showinfo("Hoàn tất", "Không có hồ sơ mới nào để chạy.")
-            logging.info("Không có hồ hồ sơ mới nào để chạy.")
-
-    async def _constrained_login_task(self, email, data, pause_event: asyncio.Event):
-        try:
-            async with self.semaphore:
-                await login_gmail_async(
-                    self.playwright_global_instance,
-                    email,
-                    data["password"],
-                    data["playwright_profile_dir"],
-                    self.update_status_label,
-                    self.active_browsers,
-                    pause_event
-                )
-                if email in self.active_browsers:
-                    current_status = self.profile_status_labels[email]["current_status"]
-                    if current_status != "error":
-                        self.update_status_label(email, "hidden", "Đã đăng nhập thành công (đang ẩn).")
-                    else:
-                        self.update_status_label(email, current_status, self.profile_status_labels[email]["message_label"].cget("text"))
-        except asyncio.CancelledError:
-            self.update_status_label(email, "error", "Tác vụ đã bị hủy.")
-            logging.info(f"Tác vụ bị hủy cho {email} trong constrained login task.")
-        except Exception as e:
-            self.update_status_label(email, "error", f"Lỗi tác vụ: {e}")
-            logging.error(f"Lỗi trong constrained login task cho {email}: {e}", exc_info=True)
-        finally:
-            if email in self.profile_tasks:
-                del self.profile_tasks[email]
-
-    def update_status_label(self, email, status, message):
-        self.after(0, self._update_status_label_ui, email, status, message)
-
-    def _update_status_label_ui(self, email, status, message):
-        if email not in self.profile_status_labels:
-            status_row_frame = ctk.CTkFrame(self.running_status_frame, fg_color="transparent")
-            status_row_frame.pack(fill="x", padx=5, pady=2)
-
-            status_row_frame.grid_columnconfigure(0, weight=1)
-            status_row_frame.grid_columnconfigure(1, weight=2)
-            status_row_frame.grid_columnconfigure(2, weight=0)
-
-            email_label = ctk.CTkLabel(status_row_frame, text=email, anchor="w", font=ctk.CTkFont(weight="bold"))
-            email_label.grid(row=0, column=0, padx=5, pady=2, sticky="ew")
-
-            message_label = ctk.CTkLabel(status_row_frame, text=message, anchor="w",
-                                        text_color=STATUS_COLOR.get(status, "white"))
-            message_label.grid(row=0, column=1, padx=5, pady=2, sticky="ew")
-
-            control_buttons_frame = ctk.CTkFrame(status_row_frame, fg_color="transparent")
-            control_buttons_frame.grid(row=0, column=2, padx=5, pady=2, sticky="e")
-            control_buttons_frame.grid_columnconfigure((0,1,2), weight=0)
-
-            pause_resume_button = ctk.CTkButton(control_buttons_frame, text="Tạm dừng", width=70,
-                                                command=lambda e=email: self.toggle_pause_resume(e),
-                                                fg_color="#8E44AD", hover_color="#9B59B6", corner_radius=6)
-            pause_resume_button.grid(row=0, column=0, padx=3, pady=2)
-
-            view_hide_button = ctk.CTkButton(control_buttons_frame, text="Hiện", width=50,
-                                                command=lambda e=email: self.loop.create_task(self.toggle_browser_visibility(e)),
-                                                fg_color="#2980B9", hover_color="#3498DB", corner_radius=6)
-            view_hide_button.grid(row=0, column=1, padx=3, pady=2)
-
-            close_button = ctk.CTkButton(control_buttons_frame, text="Đóng", width=50,
-                                         command=lambda e=email: self.close_single_browser_command(e),
-                                         fg_color="#E74C3C", hover_color="#C0392B", corner_radius=6)
-            close_button.grid(row=0, column=2, padx=3, pady=2)
-
-
-            self.profile_status_labels[email] = {
-                "frame": status_row_frame,
-                "message_label": message_label,
-                "pause_resume_button": pause_resume_button,
-                "view_hide_button": view_hide_button,
-                "current_status": status
-            }
-            logging.info(f"Đã tạo hiển thị trạng thái cho {email}: {message} ({status}).")
-        else:
-            label_data = self.profile_status_labels[email]
-            if label_data["frame"].winfo_exists():
-                label_data["message_label"].configure(text=message, text_color=STATUS_COLOR.get(status, "white"))
-                label_data["current_status"] = status
-                if status == "paused":
-                    label_data["pause_resume_button"].configure(text="Tiếp tục", fg_color="#2ECC71", hover_color="#28B463")
+            if line:
+                parts = line.split(':', 1)
+                if len(parts) == 2:
+                    accounts.append((parts[0], parts[1]))
                 else:
-                    label_data["pause_resume_button"].configure(text="Tạm dừng", fg_color="#8E44AD", hover_color="#9B59B6")
-
-                if email in self.active_browsers and (status == "running" or status == "success" or status == "paused" or status == "hidden"):
-                    label_data["view_hide_button"].configure(state="normal")
-                    if status == "hidden":
-                        label_data["view_hide_button"].configure(text="Hiện", fg_color="#2980B9", hover_color="#3498DB")
-                    elif status in ["running", "success", "paused"]:
-                        label_data["view_hide_button"].configure(text="Ẩn", fg_color="#F39C12", hover_color="#E67E22")
-                else:
-                    label_data["view_hide_button"].configure(state="disabled", text="Hiện", fg_color="gray", hover_color="gray")
-
-                logging.debug(f"Cập nhật trạng thái cho {email}: {message} ({status}).")
-            else:
-                logging.warning(f"Frame trạng thái cho {email} không tồn tại khi cố gắng cập nhật. Tạo lại.")
-                del self.profile_status_labels[email]
-                self._update_status_label_ui(email, status, message)
-
-    def toggle_pause_resume(self, email: str):
-        if email not in self.pause_events:
-            logging.warning(f"Không tìm thấy sự kiện tạm dừng cho {email}.")
+                    self.log_message(f"Lỗi định dạng tài khoản: '{line}'. Vui lòng sử dụng 'Gmail:Mật khẩu'.", "general")
+                    self.update_status("Lỗi đầu vào tài khoản!", "red")
+                    return
+        
+        if not accounts:
+            self.log_message("Vui lòng nhập ít nhất một tài khoản Gmail:Mật khẩu.", "general")
+            self.update_status("Lỗi đầu vào!", "red")
             return
 
-        event = self.pause_events[email]
-        if event.is_set():
-            event.clear()
-            self.update_status_label(email, "paused", "Đã tạm dừng.")
-            logging.info(f"Đã tạm dừng tác vụ cho {email}.")
-        else:
-            event.set()
-            current_displayed_status = self.profile_status_labels[email]["current_status"]
-            if current_displayed_status == "hidden":
-                 self.update_status_label(email, "hidden", "Đang tiếp tục (đang ẩn).")
-            else:
-                 self.update_status_label(email, "running", "Đang tiếp tục.")
-            logging.info(f"Đã tiếp tục tác vụ cho {email}.")
-
-
-    async def toggle_browser_visibility(self, email: str):
-        if email not in self.active_browsers:
-            messagebox.showwarning("Thông báo", f"Trình duyệt cho '{email}' hiện không hoạt động.")
-            return
-
-        browser_context = self.active_browsers[email]
-        if not browser_context.pages:
-            messagebox.showwarning("Thông báo", f"Không tìm thấy trang nào trong trình duyệt cho '{email}'.")
-            return
-
-        page = browser_context.pages[0]
-        label_data = self.profile_status_labels.get(email)
-        if not label_data: return
-
-        current_status = label_data["current_status"]
-        logging.info(f"[{email}] Yêu cầu chuyển đổi hiển thị. Trạng thái hiện tại: {current_status}")
-
-        label_data["view_hide_button"].configure(state="disabled", text="...", fg_color="gray")
-
+        git_link = self.git_link_entry.get()
         try:
-            if current_status == "hidden":
-                logging.info(f"[{email}] Đang hiện cửa sổ trình duyệt...")
-                await page.evaluate("window.moveTo(10, 10);")
-                await page.bring_to_front()
-                self.update_status_label(email, "running", "Đã hiện trình duyệt.")
-                logging.info(f"[{email}] Đã hiện trình duyệt.")
-            else:
-                logging.info(f"[{email}] Đang ẩn cửa sổ trình duyệt...")
-                await page.evaluate("window.moveTo(20000, 20000);")
-                # Đảm bảo làm mất focus nếu có thể
-                if sys.platform == "win32":
-                    try:
-                        # Thử dùng win32api nếu có, cần cài đặt: pip install pywin32
-                        import win32gui
-                        import win32con
-                        hwnd = win32gui.GetForegroundWindow()
-                        # Thu nhỏ cửa sổ hiện tại (nếu là cửa sổ trình duyệt)
-                        # Có thể cần tìm cửa sổ của chromium.exe/msedge.exe
-                        # win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
-                        # Hoặc gửi tín hiệu mất focus
-                        # win32gui.SetForegroundWindow(self.winfo_id()) # Đưa cửa sổ app lên trước
-                    except ImportError:
-                        pass # Không có pywin32, bỏ qua
-                await page.main_frame.evaluate("window.blur();") # Chỉ làm mất focus trên tab
-                self.update_status_label(email, "hidden", "Đã ẩn trình duyệt.")
-                logging.info(f"[{email}] Đã ẩn trình duyệt.")
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể chuyển đổi hiển thị cho '{email}': {e}.")
-            logging.error(f"Lỗi khi chuyển đổi hiển thị cho '{email}': {e}", exc_info=True)
-            self.update_status_label(email, "error", f"Lỗi hiển thị: {e}")
-        finally:
-            if email in self.profile_status_labels and self.profile_status_labels[email]["frame"].winfo_exists():
-                final_status = self.profile_status_labels[email]["current_status"]
-                if final_status == "hidden":
-                    label_data["view_hide_button"].configure(state="normal", text="Hiện", fg_color="#2980B9", hover_color="#3498DB")
-                elif final_status in ["running", "success", "paused"]:
-                    label_data["view_hide_button"].configure(state="normal", text="Ẩn", fg_color="#F39C12", hover_color="#E67E22")
-                else:
-                    label_data["view_hide_button"].configure(state="disabled", text="Hiện", fg_color="gray", hover_color="gray")
-
-    def close_single_browser_command(self, email: str):
-        if email not in self.active_browsers:
-            messagebox.showinfo("Thông báo", f"Trình duyệt cho '{email}' hiện không mở hoặc đã bị đóng.")
-            self.update_status_label(email, "closed", "Trình duyệt đã đóng.")
+            num_apps = int(self.num_apps_entry.get())
+            if num_apps <= 0 or num_apps > 10: # Limit to 10 VMs as per request
+                self.log_message("Số lượng máy ảo phải là số nguyên dương và không quá 10.", "general")
+                self.update_status("Lỗi đầu vào!", "red")
+                return
+        except ValueError:
+            self.log_message("Số lượng máy ảo không hợp lệ. Vui lòng nhập một số nguyên.", "general")
+            self.update_status("Lỗi đầu vào!", "red")
             return
 
-        if messagebox.askyesno("Xác nhận đóng", f"Bạn có muốn đóng trình duyệt cho '{email}' không?"):
-            if email in self.profile_tasks and not self.profile_tasks[email].done():
-                self.profile_tasks[email].cancel()
-                logging.info(f"Đã hủy tác vụ {email} để đóng trình duyệt.")
-                del self.profile_tasks[email]
+        # Clear existing logs and VM log sections before starting a new run
+        self.clear_log()
+        self.log_message("Bắt đầu quá trình tự động hóa...", "general")
+        self.update_status("Đang chạy...", "orange")
+        self.start_button.config(state="disabled") # Disable Start button while running
+        self.stop_button.config(state="normal") # Enable Stop button
 
-            browser_context = self.active_browsers[email]
-            self.loop.create_task(self._close_single_browser_context_task(email, browser_context))
-            logging.info(f"Yêu cầu đóng trình duyệt cho {email}.")
+        self.stop_event.clear() # Clear any previous stop signals
 
-    def close_all_active_browsers_command(self):
-        if not self.active_browsers:
-            messagebox.showinfo("Thông báo", "Không có trình duyệt nào đang mở để đóng.")
-            return
+        # Initialize a new thread to run the automation
+        self.automation_thread = threading.Thread(
+            target=start_automation_thread,
+            args=(accounts, git_link, num_apps, self.log_message, self.update_status, self.create_vm_log_sections, self.stop_event)
+        )
+        self.automation_thread.daemon = True # Allow the thread to exit with the main program
+        self.automation_thread.start()
 
-        if messagebox.askyesno("Xác nhận", "Bạn có muốn đóng tất cả các trình duyệt Gmail đang mở không?"):
-            for email, task in list(self.profile_tasks.items()):
-                if not task.done():
-                    task.cancel()
-                    logging.info(f"Đã hủy tác vụ {email} khi đóng tất cả trình duyệt.")
-                del self.profile_tasks[email]
+        # Check the thread status periodically to re-enable the button
+        self.check_thread_status()
 
-            self.loop.create_task(self.close_all_active_browsers())
-            logging.info("Yêu cầu đóng tất cả trình duyệt đang hoạt động.")
+    def stop_automation(self):
+        """
+        Signals the automation thread to stop.
+        """
+        self.stop_event.set() # Set the stop signal
+        self.log_message("Đang gửi tín hiệu dừng tự động hóa...", "general")
+        self.update_status("Đang dừng...", "red")
+        self.stop_button.config(state="disabled") # Disable Stop button once clicked
 
-    async def close_all_active_browsers(self):
-        closed_count = 0
-        tasks = []
-        emails_to_close_and_remove = list(self.active_browsers.keys())
-
-        for email in emails_to_close_and_remove:
-            if email in self.active_browsers:
-                browser_context = self.active_browsers[email]
-                tasks.append(self._close_single_browser_context_task(email, browser_context))
-                logging.info(f"Đã thêm tác vụ đóng cho {email}.")
-
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-            closed_count = len(emails_to_close_and_remove)
-
-        if self.playwright_global_instance:
-            try:
-                if not self.playwright_global_instance.is_stopped:
-                    await self.playwright_global_instance.stop()
-                    self.playwright_global_instance = None
-                    logging.info("Playwright global instance stopped.")
-            except Exception as e:
-                logging.error(f"Lỗi khi dừng Playwright instance: {e}", exc_info=True)
-
-        if closed_count > 0:
-            messagebox.showinfo("Thành công", f"Đã đóng {closed_count} trình duyệt.")
-            logging.info(f"Đã đóng {closed_count} trình duyệt.")
+    def check_thread_status(self):
+        """
+        Checks the status of the automation thread and updates the GUI.
+        """
+        if self.automation_thread and self.automation_thread.is_alive():
+            # If the thread is still running, check again after 100ms
+            self.root.after(100, self.check_thread_status)
         else:
-            messagebox.showinfo("Hoàn tất", "Không có trình duyệt nào được đóng (có thể đã đóng trước đó).")
-            logging.info("Không có trình duyệt nào được đóng.")
-
-    async def _close_single_browser_context_task(self, email, browser_context: BrowserContext):
-        try:
-            await browser_context.close()
-            logging.info(f"Đã đóng trình duyệt cho: {email}")
-        except PlaywrightError as e:
-            logging.warning(f"Trình duyệt cho {email} có thể đã đóng hoặc mất kết nối: {e}")
-        except Exception as e:
-            logging.error(f"Lỗi khi đóng trình duyệt cho {email}: {e}", exc_info=True)
-            self.update_status_label(email, "error", f"Lỗi đóng: {e}")
-        finally:
-            if email in self.active_browsers:
-                del self.active_browsers[email]
-            self.update_status_label(email, "closed", "Trình duyệt đã đóng.")
-
-
-# --- Chạy ứng dụng ---
-async def main():
-    ctk.set_appearance_mode("System")
-    ctk.set_default_color_theme("blue")
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    app = GmailLoginApp(loop)
-    logging.info("Ứng dụng GUI đã khởi tạo.")
-
-    async def main_loop_task():
-        while True:
-            if not app.winfo_exists():
-                logging.info("Cửa sổ Tkinter đã đóng, dừng vòng lặp UI.")
-                break
-            try:
-                app.update_idletasks()
-                app.update()
-            except ctk.CTK.TclError as e:
-                logging.warning(f"Lỗi khi cập nhật UI, có thể cửa sổ đã đóng: {e}")
-                break
-            await asyncio.sleep(0.01)
-
-    def on_closing():
-        logging.info("Người dùng đã yêu cầu đóng ứng dụng.")
-        asyncio.create_task(app.close_all_active_browsers())
-        app.destroy()
-
-    app.protocol("WM_DELETE_WINDOW", on_closing)
-
-    try:
-        await main_loop_task() 
-    except asyncio.CancelledError:
-        logging.info("Vòng lặp sự kiện đã bị hủy.")
-    except Exception as e:
-        logging.critical(f"Ứng dụng gặp lỗi nghiêm trọng: {e}", exc_info=True)
-    finally:
-        if app.playwright_global_instance:
-            try:
-                if not app.playwright_global_instance.is_stopped:
-                    await app.playwright_global_instance.stop()
-                    logging.info("Playwright global instance stopped during final cleanup.")
-            except Exception as e:
-                logging.error(f"Lỗi khi dừng Playwright global instance trong finally: {e}", exc_info=True)
-        logging.info("Ứng dụng đã thoát hoàn toàn.")
-
+            # If the thread has finished, re-enable the Start button and disable Stop button
+            self.start_button.config(state="normal")
+            self.stop_button.config(state="disabled")
+            # Status is updated by the automation thread itself
 
 if __name__ == "__main__":
-    logging.info("Khởi động ứng dụng bằng asyncio.run().")
-    asyncio.run(main())
+    # Create the root Tkinter window
+    root = tk.Tk()
+    # Create an instance of the GUI application
+    app = PlaywrightGUI(root)
+    # Start the Tkinter event loop
+    root.mainloop()
