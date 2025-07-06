@@ -1,59 +1,40 @@
 import asyncio
 import threading
-import logging
-import random
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import time
-
-from playwright.async_api import async_playwright, Playwright, BrowserContext, Page,expect
+from playwright.async_api import Playwright, async_playwright, expect
 
 # --- Playwright automation functions (modified to send notifications to GUI) ---
 
 async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_callback, stop_event: threading.Event):
-    FIXED_VIEWPORT = {'width': 1024, 'height': 768}
-    def get_random_browser_config_inner():
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        DIVERSE_LINUX_CHROME_USER_AGENTS = [
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    ]
-        selected_user_agent = random.choice(DIVERSE_LINUX_CHROME_USER_AGENTS)
-        selected_viewport = FIXED_VIEWPORT
-        base_args = [
-            "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-zygote",
-            "--disable-features=site-per-process", "--disable-accelerated-2d-canvas", "--no-first-run",
-            "--no-default-browser-check", "--disable-notifications", "--disable-popup-blocking",
-            "--disable-infobars", "--disable-blink-features=AutomationControlled",
-            "--disable-background-networking", "--disable-background-timer-throttling",
-            "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
-            "--disable-breakpad", "--disable-component-update", "--disable-domain-reliability",
-            "--disable-sync", "--enable-automation", "--disable-extensions",
-            "--disable-software-rasterizer", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
-        ]
-        chrome_args = base_args + [f"--window-size={selected_viewport['width']},{selected_viewport['height']}"]
-        random.shuffle(chrome_args)
-        return selected_user_agent, selected_viewport, chrome_args
-    browser_instance: Playwright.Browser | None = None
-    browser_context: BrowserContext | None = None
-    page: Page | None = None
-    current_user_agent, current_viewport, current_chrome_args = get_random_browser_config_inner()
+    """
+    Performs initial login to the Google account.
+    Args:
+        GMAIL (str): Gmail address.
+        MAT_KHAU (str): Gmail password.
+        playwright (Playwright): Playwright object.
+        log_callback (callable): Function to send messages to the GUI.
+        stop_event (threading.Event): Event to signal stopping the automation.
+    Returns:
+        tuple: (context, browser) if login is successful, otherwise (None, None).
+    """
+    if stop_event.is_set():
+        log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+        return None
+
+    browser = None
+    context = None
     try:
-        browser = await playwright.chromium.launch(
-                headless= False, # Chạy ở chế độ headless
-                args=current_chrome_args)
-        context = await browser.new_context(
-                user_agent=current_user_agent,
-                viewport=current_viewport)
+        browser = await playwright.chromium.launch(headless=False)
+        context = await browser.new_context()
         page = await context.new_page()
 
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
+        await page.goto("https://accounts.google.com")
+
+        # Wait for page to load completely
         while True:
-            await page.goto("https://accounts.google.com")
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng tải trang.", "general")
                 return None, None
@@ -81,9 +62,8 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
                 await page.goto("https://accounts.google.com/v3/signin")
                 if attempt == max_retries - 1:
                     raise Exception("Không thể tìm thấy form đăng nhập sau nhiều lần thử.")
-        await asyncio.sleep(random.uniform(0.5, 3))
-        await page.get_by_role("textbox", name="Email or phone").type(GMAIL, delay = random.uniform(0.5, 1))
-        await asyncio.sleep(random.uniform(0.5, 3))
+
+        await page.get_by_role("textbox", name="Email or phone").fill(GMAIL)
         await page.get_by_role("button", name="Next").click()
 
         log_callback("Đang chờ trường mật khẩu...", "general")
@@ -102,9 +82,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
             pass # No error, continue
 
         # Using timeout from snippet for password fill (300s, will cap at Playwright default if too high)
-        await asyncio.sleep(random.uniform(0.5, 3))
-        await page.get_by_role("textbox", name="Enter your password").type(MAT_KHAU, delay = random.uniform(0.5, 1)  , timeout=300000)
-        await asyncio.sleep(random.uniform(0.5, 3))
+        await page.get_by_role("textbox", name="Enter your password").fill(MAT_KHAU, timeout=300000)
         await page.get_by_role("button", name="Next").click()
 
         try:
@@ -112,11 +90,10 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo chào mừng.", "general")
                 return None, None
             # Using timeout from snippet for welcome message (100s)
-            await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=100000)
+            await expect(page.locator("span").filter(has_text="Chào mừng bạn đến với tài khoản")).to_be_visible(timeout=100000)
             log_callback("Phát hiện thông báo 'Chào mừng bạn đến với tài khoản', đang click 'Tôi hiểu'.", "general")
             # Using timeout from snippet for 'Tôi hiểu' button (100s)
-            await asyncio.sleep(random.uniform(0.5, 3))
-            await page.get_by_role("button", name="I understand").click(timeout=100000)
+            await page.get_by_role("button", name="Tôi hiểu").click(timeout=100000)
         except Exception:
             log_callback("Không có thông báo 'Chào mừng' hoặc đã xử lý, đang thử goto IDX.", "general")
 
@@ -157,8 +134,8 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
                 y_click = box['y'] + offset_y
                 x_click = max(box['x'], min(x_click, box['x'] + box['width'] - 1))
                 y_click = max(box['y'], min(y_click, box['y'] + box['height'] - 1))
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await element_locator.click(position={'x': offset_x, 'y': offset_y}, force=True)
+            import random
             await asyncio.sleep(random.uniform(0.5, 3))
             await page.get_by_role("button", name="Confirm").click()
             log_callback("Đã click nút 'Confirm'.", "general")
@@ -174,15 +151,12 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
                 return
             try:
                 await page.goto("https://studio.firebase.google.com/devprofile", wait_until="load")
-                await asyncio.sleep(random.uniform(0.5, 3))
+
                 await page.get_by_role("textbox", name="City, Country").click()
-                await asyncio.sleep(random.uniform(0.5, 3))
-                await page.get_by_role("textbox", name="City, Country").type("han", delay = random.uniform(0.5, 1)) 
+                await page.get_by_role("textbox", name="City, Country").fill("han") 
                 await expect(page.get_by_text("HanoiVietnam")).to_be_visible(timeout=5000)
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page.get_by_text("HanoiVietnam").click()
                 await page.get_by_role("combobox").select_option("Architect") 
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page.locator("label").filter(has_text="Stay up to date on new").click()
                 log_callback("Đã điền thông tin và chọn các tùy chọn dev profile.", "general")
                 break 
@@ -192,7 +166,6 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng click Continue (1).", "general")
                 return
-            await asyncio.sleep(random.uniform(0.5, 3))
             await page.get_by_role("button", name="Continue").click()
             log_callback("Đã click nút 'Continue' .", "general")
         except Exception as e:
@@ -203,7 +176,6 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
                 return
             await expect(page.get_by_role("heading", name="You earned your first")).to_be_visible(timeout=30000)
             log_callback("Đã nhận được thông báo 'You earned your first'.", "general")
-            await asyncio.sleep(random.uniform(0.5, 3))
             await page.get_by_role("button", name="Continue").click()
             log_callback("Đã click nút 'Continue' (2).", "general")
         except Exception as e:
@@ -212,7 +184,6 @@ async def handle_idx_initial_setup(context, log_callback, stop_event: threading.
                 if stop_event.is_set():
                     log_callback("Đã nhận tín hiệu dừng.", "general")
                     return
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page.get_by_role("button", name="Continue").click(timeout=5000)
                 log_callback("Đã thử click nút 'Continue' (2) .", "general")
             except Exception:
@@ -231,31 +202,39 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
             parts = url.split('/')
             diemnhan = parts[-1]
             await page_vm.goto("https://idx.google.com/")
-            await asyncio.sleep(random.uniform(0.5, 3))
             await page_vm.locator("workspace").filter(has_text=diemnhan).get_by_label("Workspace actions").click()
-            await asyncio.sleep(random.uniform(0.5, 3))
             await page_vm.get_by_role("menuitem", name="Delete").click()
-            await asyncio.sleep(random.uniform(0.5, 3))
             await page_vm.get_by_role("textbox", name="delete").click()
-            await asyncio.sleep(random.uniform(0.5, 3))
-            await page_vm.get_by_role("textbox", name="delete").type("delete", delay = random.uniform(0.5, 1))
-            await asyncio.sleep(random.uniform(0.5, 3))
+            await page_vm.get_by_role("textbox", name="delete").fill("delete")
             await page_vm.get_by_role("button", name="Delete").click()
     async def Tao_may(page_vm):
      if stop_event.is_set():
         log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Bỏ qua tạo máy ảo.", app_name)
 
      try:
-        if app_type == "flutter":
-            log_callback(f"[{app_name}] Đang tạo máy ảo Flutter App tên '{app_name}'...", app_name)
-            await page_vm.goto("https://idx.google.com/new/flutter", wait_until="load")
-            await asyncio.sleep(random.uniform(0.5, 3))
-            await page_vm.get_by_role("textbox", name="My Flutter App").type(app_name, delay = random.uniform(0.5, 1))
-            await asyncio.sleep(random.uniform(0.5, 3))
-            await page_vm.get_by_role("button", name="Create").click()
-        else:
-            log_callback(f"[{app_name}] Lỗi: Loại app không hợp lệ: {app_type}", app_name)
-            return
+        while True:    
+            try:
+                log_callback(f"[{app_name}] Đang tạo máy ảo Flutter App tên '{app_name}'...", app_name)
+                await page_vm.goto("https://idx.google.com/new/flutter", wait_until="load")
+                await page_vm.get_by_role("textbox", name="My Flutter App").fill(app_name)
+                await page_vm.get_by_role("button", name="Create").click()
+                break
+            except Exception:
+                 try:
+                     if stop_event.is_set():
+                        log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ thông báo chào mừng.", "general")
+                        return None, None
+           
+                     await expect(page_vm.locator("span").filter(has_text="Chào mừng bạn đến với tài khoản")).to_be_visible(timeout=100000)
+                     log_callback(f"[{app_name}] Phát hiện thông báo 'Chào mừng bạn đến với tài khoản', đang click 'Tôi hiểu'.", app_name)
+                     
+            # Using timeout from snippet for 'Tôi hiểu' button (100s)
+                     await page_vm.get_by_role("button", name="Tôi hiểu").click(timeout=100000)
+                 except Exception:
+                    log_callback(f"Không có thông báo 'Chào mừng' hoặc đã xử lý", app_name)
+                    
+                    page_vm.reload()  
+        
         try:
             if stop_event.is_set():
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng kiểm tra ban.", app_name)
@@ -273,7 +252,6 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 await expect(page_vm.get_by_text("Rate limit exceeded. Please")).to_be_visible(timeout=20000) # As in snippet
                 log_callback(f"[{app_name}] Máy ảo đang gặp quá tải máy ảo", app_name) # As in snippet
                 await asyncio.sleep(300) 
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.get_by_role("button", name="Create").click()
             except Exception:
                 try: 
@@ -286,7 +264,7 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
         time_start = time.time()
         a = 0 
         while True:
-            if a == 7:
+            if a == 10:
                 a = 0
                 await xoa(page_vm)
                 await Tao_may(page_vm)
@@ -337,7 +315,6 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng mở Terminal.", app_name)
                 return
             try:
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div").click(force=True)
                 log_callback(f"[{app_name}] đã click vào menu .", app_name)
             except Exception :   
@@ -347,7 +324,6 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 await page_vm.wait_for_load_state('load')
                 continue
             try:    
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Terminal", exact=True).click(force=True)           
                 log_callback(f"[{app_name}] Bước 2 thành công.", app_name)
             except Exception : 
@@ -357,7 +333,6 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 await page_vm.wait_for_load_state('load')  
                 continue
             try:     
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="New Terminal Ctrl+Shift+C").click(force=True) 
                 log_callback(f"[{app_name}] đã click mơ tem.", app_name)
             except Exception : 
@@ -394,9 +369,7 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 log_callback(f"[{app_name}] Đã nhận tín hiệu dừng. Đang dừng nhập lệnh Git.", app_name)
                 return
             try: 
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
-                await asyncio.sleep(random.uniform(0.5, 3))
                 await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
             except Exception as e:
                 so_lan_load = so_lan_load + 1
@@ -405,8 +378,7 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
                 await page_vm.wait_for_load_state('load')  
                 continue
             try:    
-                await asyncio.sleep(random.uniform(0.5, 3))
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").type(LINK_GIT,delay = random.uniform(0.5, 1),timeout = 30000)
+                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill(LINK_GIT,timeout = 30000)
                 await page_vm.keyboard.press("Enter",delay = 1) 
                 log_callback(f"[{app_name}] đã nhập xong.", app_name)                
                 await asyncio.sleep(10)        
@@ -424,17 +396,12 @@ async def create_virtual_machine(LINK_GIT, context, app_name: str, log_callback,
     try:
      await Tao_may(page_vm)
      await Tem(page_vm)
-     while True:
-         if stop_event.is_set():
-          log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
-          return None
-         await asyncio.sleep(120)
-         return
-         try:
-             await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=20000)
-             return
-         except Exception as e:
-             continue
+     
+     if stop_event.is_set():
+      log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
+      return None
+     await asyncio.sleep(120)
+     return
    
     except Exception as e:
         log_callback(f"Lỗi chung trong quá trình tạo máy ảo '{app_name}': {e}", app_name)
