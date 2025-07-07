@@ -1,35 +1,58 @@
 import asyncio
 import threading
 import tkinter as tk
+import logging
 from tkinter import ttk, scrolledtext
-import time
-from playwright.async_api import Playwright, async_playwright, expect
+import time,random
+from playwright.async_api import async_playwright, Playwright, BrowserContext, Page,expect
 
 # --- Playwright automation functions (modified to send notifications to GUI) ---
 
 async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_callback, stop_event: threading.Event):
-    """
-    Performs initial login to the Google account.
-    Args:
-        GMAIL (str): Gmail address.
-        MAT_KHAU (str): Gmail password.
-        playwright (Playwright): Playwright object.
-        log_callback (callable): Function to send messages to the GUI.
-        stop_event (threading.Event): Event to signal stopping the automation.
-    Returns:
-        tuple: (context, browser) if login is successful, otherwise (None, None).
-    """
+    
+    FIXED_VIEWPORT = {'width': 1024, 'height': 768}
+    def get_random_browser_config_inner():
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        DIVERSE_LINUX_CHROME_USER_AGENTS = [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    ]
+        selected_user_agent = random.choice(DIVERSE_LINUX_CHROME_USER_AGENTS)
+        selected_viewport = FIXED_VIEWPORT
+        base_args = [
+            "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-zygote",
+            "--disable-features=site-per-process", "--disable-accelerated-2d-canvas", "--no-first-run",
+            "--no-default-browser-check", "--disable-notifications", "--disable-popup-blocking",
+            "--disable-infobars", "--disable-blink-features=AutomationControlled",
+            "--disable-background-networking", "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
+            "--disable-breakpad", "--disable-component-update", "--disable-domain-reliability",
+            "--disable-sync", "--enable-automation", "--disable-extensions",
+            "--disable-software-rasterizer", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
+        ]
+        chrome_args = base_args + [f"--window-size={selected_viewport['width']},{selected_viewport['height']}"]
+        random.shuffle(chrome_args)
+        return selected_user_agent, selected_viewport, chrome_args
     if stop_event.is_set():
         log_callback("Đã nhận tín hiệu dừng. Bỏ qua đăng nhập.", "general")
         return None
 
-    browser = None
-    context = None
+    browser_instance: Playwright.Browser | None = None
+    browser_context: BrowserContext | None = None
+    page: Page | None = None
+    current_user_agent, current_viewport, current_chrome_args = get_random_browser_config_inner()
     try:
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context()
+        browser = await playwright.chromium.launch(
+                headless= False, # Chạy ở chế độ headless
+                args=current_chrome_args)
+        context = await browser.new_context(
+                user_agent=current_user_agent,
+                viewport=current_viewport)
         page = await context.new_page()
-
         log_callback("Đang truy cập tài khoản Google để đăng nhập...", "general")
         await page.goto("https://accounts.google.com")
 
@@ -748,4 +771,3 @@ if __name__ == "__main__":
     app = PlaywrightGUI(root)
     # Start the Tkinter event loop
     root.mainloop()
-
