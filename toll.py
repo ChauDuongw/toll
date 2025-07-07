@@ -47,7 +47,7 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
     current_user_agent, current_viewport, current_chrome_args = get_random_browser_config_inner()
     try:
         browser = await playwright.chromium.launch(
-                headless= False, # Chạy ở chế độ headless
+                headless= True, # Chạy ở chế độ headless
                 args=current_chrome_args)
         context = await browser.new_context(
                 user_agent=current_user_agent,
@@ -63,14 +63,14 @@ async def perform_initial_login(GMAIL, MAT_KHAU, playwright: Playwright, log_cal
                 return None, None
             try:
                 # Using the timeout from the provided snippet, which is 30s
-                await page.wait_for_load_state('domcontentloaded', timeout=30000)
+                await page.wait_for_load_state('domcontentloaded', timeout=120000)
                 break
             except Exception:
                 log_callback("Tải trang đăng nhập Google bị lỗi, đang reload...", "general")
                 await page.reload()
 
         log_callback("Đang chờ form đăng nhập xuất hiện...", "general")
-        max_retries = 3
+        max_retries = 5
         for attempt in range(max_retries):
             if stop_event.is_set():
                 log_callback("Đã nhận tín hiệu dừng. Đang dừng chờ form đăng nhập.", "general")
