@@ -2,61 +2,41 @@
 # curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/codecai.sh | bash
 
 
-# --- Cấu hình ---
-# URL của file code Python cần "cài đặt" (tool.py)
-PYTHON_CODE_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/test.py"
-# Tên file code Python sau khi tải về (bạn muốn đặt là a1.py)
-PYTHON_CODE_FILENAME="a1.py"
 
-# URL của script cần chạy sau khi cài đặt (run_app.sh)
-RUN_SCRIPT_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/caimoitruong.sh"
-# Tên file script sau khi tải về (run_app.sh)
-RUN_SCRIPT_FILENAME="run_app.sh"
+# === THÔNG SỐ CẦN ĐỔI (nếu cần) ===
+PYTHON_SCRIPT_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/test.py"
+PYTHON_SCRIPT_NAME="autologin_idx.py"
+INSTALL_DIR="$HOME/idx_auto_login"
+VENV_DIR="$INSTALL_DIR/venv"
 
-# Thư mục đích để lưu các file (ví dụ: thư mục hiện tại)
-INSTALL_DIR="./" # Bạn có thể thay đổi thành "/opt/my_app/" hoặc "/usr/local/bin/" nếu muốn cài đặt hệ thống
+# === TẠO THƯ MỤC LƯU FILE ===
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR" || { echo "❌ Không thể vào thư mục $INSTALL_DIR"; exit 1; }
 
-echo "--- Bắt đầu quá trình cài đặt và chạy ---"
-
-# --- 1. Tải và "cài đặt" (copy) file code Python ---
-echo "Đang tải $PYTHON_CODE_URL và lưu thành $INSTALL_DIR$PYTHON_CODE_FILENAME..."
-curl -sL "$PYTHON_CODE_URL" -o "$INSTALL_DIR$PYTHON_CODE_FILENAME"
-
-# Kiểm tra xem việc tải và lưu file Python có thành công không
-if [ $? -eq 0 ]; then
-    echo "Tải và cài đặt $PYTHON_CODE_FILENAME thành công."
-else
-    echo "Lỗi: Không thể tải hoặc lưu $PYTHON_CODE_FILENAME. Vui lòng kiểm tra URL hoặc quyền ghi."
-    exit 1 # Thoát với mã lỗi
+echo "📥 Đang tải file Python từ GitHub..."
+curl -sL "$PYTHON_SCRIPT_URL" -o "$PYTHON_SCRIPT_NAME"
+if [ $? -ne 0 ]; then
+    echo "❌ Lỗi khi tải file Python"
+    exit 1
 fi
+echo "✅ Tải thành công: $PYTHON_SCRIPT_NAME"
 
-# --- 2. Tải script chạy (run_app.sh) ---
-echo "Đang tải $RUN_SCRIPT_URL và lưu thành $INSTALL_DIR$RUN_SCRIPT_FILENAME..."
-curl -sL "$RUN_SCRIPT_URL" -o "$INSTALL_DIR$RUN_SCRIPT_FILENAME"
+# === TẠO MÔI TRƯỜNG ẢO VÀ CÀI THƯ VIỆN ===
+echo "🐍 Tạo môi trường ảo tại: $VENV_DIR"
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
 
-# Kiểm tra xem việc tải script có thành công không
-if [ $? -eq 0 ]; then
-    echo "Tải $RUN_SCRIPT_FILENAME thành công."
-else
-    echo "Lỗi: Không thể tải hoặc lưu $RUN_SCRIPT_FILENAME. Vui lòng kiểm tra URL hoặc quyền ghi."
-    exit 1 # Thoát với mã lỗi
-fi
+echo "📦 Cài đặt thư viện cần thiết..."
+pip install --upgrade pip
+pip install playwright
+playwright install
 
-# Cấp quyền thực thi cho script run_app.sh
-echo "Cấp quyền thực thi cho $RUN_SCRIPT_FILENAME..."
-chmod +x "$INSTALL_DIR$RUN_SCRIPT_FILENAME"
+# === CHẠY FILE PYTHON ===
+echo "🚀 Đang chạy script Python trong môi trường ảo..."
+python "$PYTHON_SCRIPT_NAME"
 
-# --- 3. Chạy script đã tải về (run_app.sh) ---
-echo "Đang chạy $RUN_SCRIPT_FILENAME..."
-# Điều hướng đến thư mục cài đặt trước khi chạy nếu cần
-cd "$INSTALL_DIR" || { echo "Lỗi: Không thể vào thư mục cài đặt."; exit 1; }
-./"$RUN_SCRIPT_FILENAME" # Chạy script đã cấp quyền thực thi
+# === THOÁT MÔI TRƯỜNG ẢO SAU KHI CHẠY ===
+deactivate
+echo "✅ Đã thoát môi trường ảo"
 
-# Kiểm tra xem script run_app.sh có chạy thành công không
-if [ $? -eq 0 ]; then
-    echo "Chạy $RUN_SCRIPT_FILENAME thành công."
-else
-    echo "Lỗi: Chạy $RUN_SCRIPT_FILENAME thất bại."
-fi
-
-echo "--- Quá trình hoàn tất ---"
+echo "🎉 Đã hoàn tất quá trình chạy tự động!"
