@@ -85,9 +85,9 @@ async def perform_initial_login(gmail_account: str, password: str, playwright: P
                     print(f"đăng nhập thất bại thực hiện lại hành động đăng nhập gmail: {e}")
             print("Kiem tra thong bao (Chào mừng bạn đến với tài khoản)")
             try:
-                await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=120000)
+                await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=10000)
                 print("Da phat hien thong bao (Chào mừng bạn đến với tài khoản)")
-                await page.get_by_role("button", name="I understand").click(timeout=100000)
+                await page.get_by_role("button", name="I understand").click(timeout=10000)
                 print("Da vuot qua thong bao(Chào mừng bạn đến với tài khoản)")
             except Exception:
                 print("khong phat hien thong bao (Chào mừng bạn đến với tài khoản)")
