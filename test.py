@@ -118,7 +118,7 @@ async def perform_initial_login(gmail_account: str, password: str, playwright: P
                 except Exception:
                     print("Dien thong tin ho so that bai can thuc hien lai")
         await Dangnhap()
-        #await idx()
+        await idx()
         return context, browser
     except Exception as e:
         print(f"Lỗi trong quá trình đăng nhập Gmail '{gmail_account}': {e}")
