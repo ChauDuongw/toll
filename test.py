@@ -95,39 +95,6 @@ async def perform_initial_login(gmail_account: str, password: str, playwright: P
 
         async def idx():
             """Điều hướng đến IDX và xử lý các màn hình thiết lập/chào mừng ban đầu."""
-            print("truy cap trang idx https://idx.google.com")
-            while True:
-                # kiem tra xem co thong bao
-                try:
-                    await page.goto("https://idx.google.com")
-                    await expect(page.get_by_role("heading", name="Welcome to Firebase Studio, a")).to_be_visible(timeout=150000)
-                    print("phat hien thong bao chao mung.")
-                    element_locator = page.get_by_text("I accept the terms and")
-                    await expect(element_locator).to_be_visible()
-                    box = await element_locator.bounding_box()
-                    if box:
-                        offset_x = 5
-                        offset_y = 5
-                        x_click = box['x'] + offset_x
-                        y_click = box['y'] + offset_y
-                        x_click = max(box['x'], min(x_click, box['x'] + box['width'] - 1))
-                        y_click = max(box['y'], min(y_click, box['y'] + box['height'] - 1))
-                        await element_locator.click(position={'x': offset_x, 'y': offset_y}, force=True)
-                    await page.get_by_role("button", name="Confirm").click()
-                    try:
-                        await expect(page.get_by_role("link", name="New Workspace")).to_be_visible(timeout=60000)
-                        print("truy cap trang truy cap trang idx https://idx.google.com thanh cong ")
-                        break
-                    except Exception:
-                        print("truy cap trang truy cap trang idx https://idx.google.com that bai dang thuc hien lai ")
-
-                except Exception:
-                    try:
-                        await expect(page.get_by_role("link", name="New Workspace")).to_be_visible(timeout=60000)
-                        print("truy cap trang truy cap trang idx https://idx.google.com thanh cong ")
-                        break
-                    except Exception:
-                        print("truy cap trang truy cap trang idx https://idx.google.com that bai dang thuc hien lai ")
             print("truy cap trang https://studio.firebase.google.com/devprofile")
             while True:
                 try:
