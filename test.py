@@ -56,7 +56,7 @@ async def perform_initial_login(gmail_account: str, password: str, playwright: P
     try:
         print("Đang khởi chạy trình duyệt để đăng nhập ban đầu...")
         browser = await playwright.chromium.launch(
-            headless=True,  # Chạy ở chế độ headless
+            headless=False,  # Chạy ở chế độ headless
             args=current_chrome_args
         )
         context = await browser.new_context(
