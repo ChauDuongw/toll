@@ -287,10 +287,21 @@ async def open_single_idx_page(context: BrowserContext,url, page_number: int) ->
                 await page_vm.reload()
         return
     if page_number == 1:
-        await page_vm.goto(url, wait_until="load")
+        while True:
+         try:
+             await page_vm.goto(url, wait_until="load",timeout = 60000)
+             break
+         except:
+             continue
         while True:
           await asyncio.sleep(300)
-          await page_vm.reload()
+          while True :
+                   try:
+                    await page_vm.goto(url, wait_until="load",timeout = 60000)
+                    break
+                   except :
+                    continue
+     
     while True:
        if await Tao_may() == 3:
            continue
@@ -306,8 +317,13 @@ async def open_single_idx_page(context: BrowserContext,url, page_number: int) ->
            await xoa()
        while True:
                await asyncio.sleep(300)
-               await page_vm.reload()    
-
+               url = page_vm.url   
+               while True :
+                   try:
+                    await page_vm.goto(url, wait_until="load",timeout = 60000)
+                    break
+                   except :
+                    continue
      
     return page_vm
 async def main_automation(gmail: str, password: str, url: str):
