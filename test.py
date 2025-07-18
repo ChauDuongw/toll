@@ -133,159 +133,7 @@ async def open_single_idx_page(context: BrowserContext,url, page_number: int) ->
     app_name = "a" + str(page_number)
 
     # ĐỊNH NGHĨA CÁC HÀM CON TRƯỚC KHI SỬ DỤNG
-    async def xoa():
-        url = page_vm.url
-        parts = url.split('/')
-        diemnhan = parts[-1]
-        print(f"thuc hien hanh dong xoa may ao {diemnhan}")
-        # kiem tra may ao con khong
-        while True:
-            try:
-                print("truy cap trang https://idx.google.com/ ")
-                await page_vm.goto("https://idx.google.com/")
-                break
-            except Exception:
-                print("truy cap trang https://idx.google.com/ that bai")
-                continue
-        while True:
-            try:
-                await expect(page_vm.locator("a").filter(has_text=diemnhan)).to_be_visible()
-                print("phat hien may ao can xoa no")
-                try:
-                    await page_vm.locator("workspace").filter(has_text=diemnhan).get_by_label("Workspace actions").click()
-                    await page_vm.get_by_role("menuitem", name="Delete").click()
-                    await page_vm.get_by_role("textbox", name="delete").click()
-                    await page_vm.get_by_role("textbox", name="delete").fill("delete")
-                    await page_vm.get_by_role("button", name="Delete").click()
-                    print("xoa thanh cong may ao")
-                    await page_vm.reload()
-                    continue
-                except Exception:
-                    print("xoa may ao that bai kiem tra lai")
-                    continue
-            except Exception:
-                break
-        return
-    async def Tao_may():
-        solantao = 0
-        while True:
-            if solantao == 5:
-                print("qua so lan tai.")
-                return 3
-            try:
-                print(f"Dang tao may ao {app_name}")
-                await page_vm.goto("https://idx.google.com/new/flutter", wait_until="load")
-                await page_vm.get_by_role("textbox", name="My Flutter App").fill(app_name)
-                await page_vm.get_by_role("button", name="Create").click()
-                print(f"tao may ao {app_name} thanh cong")
-                break
-            except:
-                print(f"tao may ao {app_name} that bai")
-                solantao = solantao + 1 
-        return           
-    async def kiemtra():
-        solankt = 0
-        while True:
-            if solankt == 15:
-                return 4
-            try:
-                await expect(page_vm.get_by_text("Setting up workspace")).to_be_visible(timeout=40000)
-                print(f"Máy ảo {app_name} đang trong giai đoạn tạo máy ảo")
-                return 
-            except:
-                None
-            try:
-                await expect(page_vm.get_by_text("We've detected suspicious activity on one of your workspaces")).to_be_visible(timeout=2000)
-                print("Tai khoan da bi ban")
-                return 4
-            except:
-                None
-            try:
-                await expect(page_vm.get_by_text("Rate limit exceeded. Please")).to_be_visible(timeout=20000)
-                print(f"may ao {app_name} dang gap tinh trang qua tai may ao")
-                await asyncio.sleep(180)
-                await page_vm.get_by_role("button", name="Create").click()
-                solankt = solankt + 1 
-            except:
-                print(f"may ao {app_name} loi tinh trang khac")
-                solankt = solankt + 1 
-                continue
-    async def chomay():
-        print(f"dang cho may ao {app_name} duoc tao.")
-        solanload = 0
-        time_stat = time.time()
-        while True:
-            if solanload == 10:
-                return 3
-            try:
-                await expect(page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div")).to_be_visible(timeout=15000)
-                print(f"May ao {app_name} da duoc tao thanh cong")
-                return
-            except:
-                None
-            try:
-                await expect(page_vm.get_by_text("Error opening workspace: We")).to_be_visible(timeout=10000)
-                time_stat = time.time()
-                print(f"may ao {app_name} qua thoi gian can load lai")
-                await page_vm.reload(wait_until="load")
-                solanload = solanload + 1
-                continue
-            except Exception:
-                None
-            if (time.time() - time_stat) >= 200:
-                time_stat = time.time()
-                print(f"may ao {app_name} qua thoi gian can load lai")
-                await page_vm.reload(wait_until="load")
-                solanload = solanload + 1
-                continue
-            print(f"Van dang cho tao may ao {app_name}")
-    
-    async def mo_tem():
-        solanmo = 0
-        while True:  
-            if solanmo == 5:
-                return 3  
-            try:
-                print(f"Dang thuc hien hanh dong mo tem cho may ao {app_name}")
-                
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("menuitem", name="Application Menu").locator("div").click(force=True)
-                await page_vm.keyboard.press('Control+`',delay = 1)
-                print(f"thuc hien mo tem thanh cong dang cho tem xuat hien {app_name}")
-                await page_vm.locator("#iframe-container iframe").first.content_frame.locator(".terminal-widget-container").click(timeout = 60000) 
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("tab", name="Terminal (Ctrl+`)").locator("a").click(modifiers=["ControlOrMeta"])
-                print(f" tem cua may ao {app_name} xuat hien ")
-                break
-            except Exception:
-                print(f"hanh dong cua may ao {app_name} that bai ")
-                solanmo = solanmo + 1
-                await page_vm.reload()    
-    async def nhap_tem():
-        solannhap = 0
-        while True:  
-            if solannhap == 5:
-                return 3  
-            try:
-                try:
-                    await page_vm.locator("#iframe-container iframe").first.content_frame.locator(".terminal-widget-container").click(timeout = 60000) 
-                    await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("tab", name="Terminal (Ctrl+`)").locator("a").click(modifiers=["ControlOrMeta"])
-                except:
-                    print(f"may ao {app_name} tem da bien mat")
-                    print(f"hanh dong cua may ao {app_name} that bai ")
-                    solanmo = solannhap + 1
-                    await page_vm.reload()
-                    continue
-                print(f"nhap tem cho may ao {app_name}")
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(modifiers=["ControlOrMeta"],timeout = 30000)
-                print(f"tim thay cho nhap cua may ao {app_name}")
-                await page_vm.locator("#iframe-container iframe").first.content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill(LINK_GIT,timeout = 30000)
-                await page_vm.keyboard.press("Enter",delay = 1) 
-                print(f"da nhap cho may ao {app_name} thanh cong")
-                break
-            except Exception:
-                print(f"hanh dong cua may ao {app_name} that bai ")
-                solanmo = solannhap + 1
-                await page_vm.reload()
-        return
+   
     if page_number == 1:
         while True:
          try:
@@ -297,33 +145,13 @@ async def open_single_idx_page(context: BrowserContext,url, page_number: int) ->
           await asyncio.sleep(300)
           while True :
                    try:
-                    await page_vm.goto(url, wait_until="load",timeout = 60000)
+                    await page_vm.goto(url, wait_until="load",timeout = 600000)
                     break
                    except :
                     continue
      
-    while True:
-       if await Tao_may() == 3:
-           continue
-       if await kiemtra() == 4:
-           return page_vm
-       if await chomay() == 3:
-           await xoa()
-           continue
-       if await mo_tem() == 3:
-           await xoa()
-           continue 
-       if await nhap_tem() == 3:
-           await xoa()
-       while True:
-               await asyncio.sleep(300)
-               url = page_vm.url   
-               while True :
-                   try:
-                    await page_vm.goto(url, wait_until="load",timeout = 60000)
-                    break
-                   except :
-                    continue
+    else:
+        return
      
     return page_vm
 async def main_automation(gmail: str, password: str, url: str):
