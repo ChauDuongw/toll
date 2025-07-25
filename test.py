@@ -248,5 +248,7 @@ async def main():
         
 
 import nest_asyncio
+import asyncio
+
 nest_asyncio.apply()
-await main()
+asyncio.run(main())
