@@ -1,11 +1,4 @@
-# ======================= CÀI ĐẶT =======================
-!apt-get update -y
-!apt-get install -y chromium-browser chromium-driver xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
-!pip install --upgrade pip
-!pip install playwright pyvirtualdisplay nest_asyncio IPython
-!playwright install chromium
 
-# ======================= IMPORT VÀ CHUẨN BỊ =======================
 import nest_asyncio
 import asyncio
 import logging
