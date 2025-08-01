@@ -133,7 +133,7 @@ async def login_gmail(email: str, password: str):
 async def main():
     email = "thayemail"  # Thay email của bạn vào đây
     pw = "Lananh255"       # Thay mật khẩu của bạn vào đây
-    await login_and_run(email, pw)
+    await login_gmail(email, pw)
 
 # Chạy hàm chính
 if __name__ == "__main__":
