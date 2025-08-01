@@ -130,12 +130,11 @@ async def login_gmail(email: str, password: str):
         await Dangnhap() 
         await colab()
 
-email = "thayemail"
-pw = "Lananh255"
-await login_gmail(email, pw)
 async def main():
-    email = "thayemail"
-    pw = "Lananh255"
-    await login_gmail(email, pw)
+    email = "thayemail"  # Thay email của bạn vào đây
+    pw = "Lananh255"       # Thay mật khẩu của bạn vào đây
+    await login_and_run(email, pw)
+
 # Chạy hàm chính
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
