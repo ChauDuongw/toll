@@ -118,6 +118,8 @@ async def login_gmail(email: str, password: str):
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
                 await page.keyboard.press("Enter", delay=2)
+                await page.screenshot(path="error.png", full_page=True)
+                display(Image("error.png"))
                 while True:
                  None
              except Exception as e:
