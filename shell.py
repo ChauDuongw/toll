@@ -133,4 +133,9 @@ async def login_gmail(email: str, password: str):
 email = "thayemail"
 pw = "Lananh255"
 await login_gmail(email, pw)
-
+async def main():
+    email = "thayemail"
+    pw = "Lananh255"
+    await login_gmail(email, pw)
+# Chạy hàm chính
+asyncio.run(main())
