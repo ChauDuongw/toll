@@ -101,7 +101,7 @@ async def login_gmail(email: str, password: str):
                  await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
                 except:
                     None
-                 await page.get_by_role("button", name="Authorize").click(timeout=180000)
+                await page.get_by_role("button", name="Authorize").click(timeout=180000)
                 await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
