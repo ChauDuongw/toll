@@ -76,11 +76,6 @@ async def login_gmail(email: str, password: str):
                 except:
                     print("dien mat khau that bai")
                     continue
-                try:
-                    await expect(page.locator("span").filter(has_text="Welcome to your new Google Workspace for Education account")).to_be_visible(timeout=30000)
-                    await page.get_by_role("button", name="I understand").click(timeout=100000)
-                except Exception:
-                    None
                 return 
                 break
             except Exception as e:
