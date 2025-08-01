@@ -88,11 +88,6 @@ async def login_gmail(email: str, password: str):
         async def colab():
           
          print("Điều hướng đến Google Cloud Shell...")
-         try:
-            pageq = await context.new_page(timeout = 500000)
-            await pageq.goto("thayurl",timeout = 500000)
-         except :
-            return
          b = 0
          while True:
              b = b + 1
