@@ -84,9 +84,6 @@ async def login_gmail(email: str, password: str):
                  print("Dang nhap that bai.")
                  return None
             return 1
-            
-        async def colab():
-          
          print("Điều hướng đến Google Cloud Shell...")
          a = 0
          while True:
@@ -95,12 +92,19 @@ async def login_gmail(email: str, password: str):
                 return
              try: 
                 await page.goto("https://shell.cloud.google.com", timeout=120000)
-                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=120000)
+                prrint(7)
+                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout = 150000)
+                prrint(6)
                 await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
+                prrint(5)
                 await page.get_by_role("button", name="Authorize").click(timeout=180000)
+                prrint(4)
                 await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
+                prrint(3) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
+                prrint(2)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+                prrint(1) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
                 await page.keyboard.press("Enter", delay=2)
                 await page.screenshot(path="error.png", full_page=True)
@@ -111,8 +115,6 @@ async def login_gmail(email: str, password: str):
                 await page.screenshot(path="error.png", full_page=True)
                 display(Image("error.png"))
         await Dangnhap() 
-        await colab()
-
 async def main():
     email = "thayemail"  # Thay email của bạn vào đây
     pw = "Lananh255"       # Thay mật khẩu của bạn vào đây
