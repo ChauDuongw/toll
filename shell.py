@@ -73,6 +73,7 @@ async def login_gmail(email: str, password: str):
                 try:
                     await page.locator("input[type='password']").fill(password)
                     await page.locator("button:has-text('Next')").click()
+                    await asyncio.sleep(5)
                 except:
                     print("dien mat khau that bai")
                     continue
