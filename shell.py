@@ -77,7 +77,7 @@ async def login_gmail(email: str, password: str):
                 except:
                     print("dien mat khau that bai")
                     continue
-                return 
+
                 break
             except Exception as e:
                 print("loi")
@@ -93,19 +93,19 @@ async def login_gmail(email: str, password: str):
                 return
              try: 
                 await page.goto("https://shell.cloud.google.com", timeout=120000)
-                prrint(7)
+                print(7)
                 await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout = 150000)
-                prrint(6)
+                print(6)
                 await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
-                prrint(5)
+                print(5)
                 await page.get_by_role("button", name="Authorize").click(timeout=180000)
-                prrint(4)
+                print(4)
                 await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
-                prrint(3) 
+                print(3) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
-                prrint(2)
+                print(2)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
-                prrint(1) 
+                print(1) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
                 await page.keyboard.press("Enter", delay=2)
                 print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
