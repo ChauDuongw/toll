@@ -109,7 +109,7 @@ async def login_gmail(email: str, password: str):
                  None
              except Exception as e:
                 await page.screenshot(path="error.png", full_page=True)
-                display(Image("error.png")
+                display(Image("error.png"))
         await Dangnhap() 
         await colab()
 
