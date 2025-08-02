@@ -1,120 +1,58 @@
 #!/bin/bash
 
+# ==================== THÔNG TIN CẤU HÌNH ====================
 # Địa chỉ ví của bạn
 WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
-# Địa chỉ pool - SupportXMR.com với cổng 443 (SSL/TLS)
+# Địa chỉ pool (SupportXMR.com với SSL/TLS)
 POOL_ADDRESS="pool.supportxmr.com:443"
-
-# Tên worker (tùy chọn, bạn có thể thay đổi để dễ quản lý)
+# Tên worker (tùy chọn)
 WORKER_NAME="my_xmr_worker"
-# Phiên bản XMRig để tải xuống
-XMRIG_VERSION="6.21.0"
-# Đường dẫn cài đặt (thư mục home của bạn)
+# Phiên bản XMRig mới nhất
+XMRIG_VERSION="6.24.0"
+# Đường dẫn tải xuống phiên bản static
+XMRIG_URL="https://github.com/xmrig/xmrig/releases/download/v$XMRIG_VERSION/xmrig-$XMRIG_VERSION-linux-static-x64.tar.gz"
+# Thư mục cài đặt
 INSTALL_DIR="$HOME/xmrig"
-# Tên file log
-LOG_FILE="xmrig_mining.log"
 
-# --- Bắt đầu tập lệnh ---
+# =================== BẮT ĐẦU TỰ ĐỘNG HÓA ===================
+echo "🚀 Bắt đầu quá trình thiết lập XMRig..."
 
-echo "Bắt đầu thiết lập và cấu hình XMRig..."
-
-# Tạo thư mục cài đặt nếu chưa có
-mkdir -p "$INSTALL_DIR"
-cd "$INSTALL_DIR" || { echo "Không thể chuyển đến thư mục $INSTALL_DIR. Thoát."; exit 1; }
-
-# Kiểm tra xem XMRig đã được tải xuống chưa
-if [ ! -f "xmrig" ]; then
-    echo "Tải xuống XMRig phiên bản $XMRIG_VERSION..."
-    # Lấy phiên bản XMRig cho Linux x64
-    wget "https://github.com/xmrig/xmrig/releases/download/v$XMRIG_VERSION/xmrig-$XMRIG_VERSION-linux-x64.tar.gz" -O xmrig.tar.gz
-    if [ $? -ne 0 ]; then
-        echo "Lỗi khi tải xuống XMRig. Vui lòng kiểm tra kết nối mạng hoặc phiên bản."
-        exit 1
-    fi
-
-    tar -xzf xmrig.tar.gz
-    # Di chuyển file xmrig từ thư mục giải nén ra thư mục gốc để dễ chạy
-    mv xmrig-$XMRIG_VERSION/* .
-    rm -rf xmrig-$XMRIG_VERSION xmrig.tar.gz
-
-    echo "XMRig đã được tải xuống và giải nén."
-else
-    echo "XMRig đã tồn tại. Bỏ qua bước tải xuống."
+# --- Bước 1: Cập nhật hệ thống và cài đặt các gói cần thiết ---
+echo "⚙️ Cài đặt các công cụ cần thiết: wget, tar..."
+sudo apt-get update > /dev/null 2>&1
+sudo apt-get install -y wget tar > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "❌ Lỗi: Không thể cài đặt các gói cần thiết. Vui lòng kiểm tra lại quyền hoặc kết nối mạng."
+    exit 1
 fi
+
+# --- Bước 2: Tạo thư mục và tải xuống XMRig ---
+echo "📂 Tạo và chuyển đến thư mục $INSTALL_DIR..."
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR" || { echo "❌ Lỗi: Không thể tạo thư mục. Thoát."; exit 1; }
+
+echo "📥 Tải xuống XMRig phiên bản $XMRIG_VERSION..."
+wget "$XMRIG_URL" -O xmrig.tar.gz
+if [ $? -ne 0 ]; then
+    echo "❌ Lỗi: Không thể tải xuống XMRig. Vui lòng kiểm tra kết nối mạng hoặc đường dẫn."
+    exit 1
+fi
+
+# --- Bước 3: Giải nén và dọn dẹp ---
+echo "📦 Giải nén và thiết lập..."
+tar -xzf xmrig.tar.gz
+# mv xmrig-$XMRIG_VERSION/* . # Dòng này có thể không cần thiết với bản static
+# rm -rf xmrig-$XMRIG_VERSION # Dòng này cũng vậy
+rm -rf xmrig.tar.gz
 
 # Cấp quyền thực thi cho XMRig
 chmod +x xmrig
 
-# Tạo file cấu hình config.json
-echo "Tạo file cấu hình config.json..."
-cat << EOF > config.json
-{
-    "autosave": true,
-    "cpu": true,
-    "opencl": false,
-    "cuda": false,
-    "pools": [
-        {
-            "algo": null,
-            "coin": null,
-            "url": "$POOL_ADDRESS",
-            "user": "$WALLET_ADDRESS.$WORKER_NAME",
-            "pass": "x",
-            "rig-id": null,
-            "nicehash": false,
-            "keepalive": true,
-            "tls": true,
-            "daemon": false,
-            "socks5": null,
-            "self-select": null,
-            "motp": null,
-            "log-on-success": true,
-            "log-on-error": true,
-            "dns-over-https": null,
-            "dns-fallback": [],
-            "bind": null,
-            "usage-report": false,
-            "syslog": false,
-            "tls-fingerprint": null
-        }
-    ],
-    "print-time": 60,
-    "api": {
-        "id": null,
-        "host": "127.0.0.1",
-        "port": 0,
-        "access-token": null,
-        "ipv6": false,
-        "restricted": true
-    },
-    "donate-level": 1,
-    "user-agent": null,
-    "syslog": false,
-    "log-file": "$LOG_FILE",
-    "log-level": 2,
-    "background": false,
-    "tls": {
-        "enabled": true,
-        "protocols": null,
-        "cert": null,
-        "key": null,
-        "passphrase": null,
-        "ciphers": null,
-        "ciphersuites": null,
-        "dhparam": null
-    },
-    "cpu-max-threads-hint": 80,
-    "pass": "x",
-    "retries": 5,
-    "retry-pause": 5,
-    "api-version": 1
-}
-EOF
+echo "✅ Thiết lập hoàn tất."
 
-echo "File cấu hình config.json đã được tạo với các thông số của bạn."
+# --- Bước 4: Chạy XMRig và hiển thị log ---
+echo "⛏️ Bắt đầu đào XMR... (Nhấn Ctrl+C để dừng)"
+echo "Tỷ lệ sử dụng CPU sẽ là tối đa."
 
-# Chạy XMRig
-echo "Bắt đầu đào XMR... (Nhấn Ctrl+C để dừng)"
-echo "Tỷ lệ sử dụng CPU được giới hạn ở 70%."
-echo "Nhật ký sẽ được hiển thị trên màn hình và cũng được lưu vào tệp: $INSTALL_DIR/$LOG_FILE"
-./xmrig -c config.json --cpu-max-threads-hint=80
+# Chạy XMRig với các tham số trên dòng lệnh
+./xmrig --url "$POOL_ADDRESS" --user "$WALLET_ADDRESS.$WORKER_NAME" --pass "x" --tls
