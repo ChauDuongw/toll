@@ -79,8 +79,6 @@ async def login_gmail(email: str, password: str):
                  print("Dang nhap that bai.")
             
         async def colab():
-          
-         print("Điều hướng đến Google Cloud Shell...")
          b = 0
          while True:
              b = b + 1
@@ -94,6 +92,7 @@ async def login_gmail(email: str, password: str):
                 await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
                 break
              except:
+                print("loi")
                 return
          a = 0
          while True:
@@ -108,9 +107,11 @@ async def login_gmail(email: str, password: str):
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
                 await page.keyboard.press("Enter", delay=2)
+                print("hoan thanh")
                 while True:
                  None
              except Exception as e:
+                print("loi")
                 return 
         await Dangnhap() 
         await colab()
