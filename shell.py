@@ -60,7 +60,8 @@ async def login_gmail(email: str, password: str,url: str):
             await asyncio.sleep(5)
             print(0)
             page2 = await context.new_page()
-            await page2.goto("https://colab.research.google.com/drive/16ilKxJdzCU3EcWmi4t5paBOkVFOLRbzW")
+            a2 ="https://colab.research.google.com/drive/16ilKxJdzCU3EcWmi4t5paBOkVFOLRbzW"
+            await page2.goto(a2)
             print(1)
             await page.goto("https://shell.cloud.google.com", timeout=500000)
             await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
@@ -75,8 +76,8 @@ async def login_gmail(email: str, password: str,url: str):
             await page.keyboard.press("Enter", delay=2)
             print("hoan thanh")
             while True:
-                None
-
+                await asyncio.sleep(1200)
+                await page2.goto(a2)
 
         await Dangnhap()
 async def main():
