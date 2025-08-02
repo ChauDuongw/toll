@@ -47,9 +47,6 @@ async def login_gmail(email: str, password: str):
             permissions=["geolocation"],
             extra_http_headers={"Accept-Language": "en-US,en;q=0.9"}
         )
-        
-
-        # Ẩn navigator.webdriver
         await context.add_init_script("""Object.defineProperty(navigator, 'webdriver', { get: () => undefined });""")
         a = 0
         page = await context.new_page()
@@ -62,66 +59,65 @@ async def login_gmail(email: str, password: str):
                 try:
                  await page.goto("https://accounts.google.com")
                 except:
-                 print("Truy nhap den trang https://accounts.google.com that bai ")
                  continue
                 try:  
                     await page.locator("input[type='email']").fill(email)
                     await page.locator("button:has-text('Next')").click()
                 except:
-                 print("dien ten dang nhap that bai") 
-                 continue
+                    continue
                 try:
                     await page.locator("input[type='password']").fill(password)
                     await page.locator("button:has-text('Next')").click()
                     await asyncio.sleep(5)
-                except:
-                    print("dien mat khau that bai")
-                    continue
 
+                except:
+                    continue
                 break
             except Exception as e:
                 print("loi")
                 if a == 5:
                  print("Dang nhap that bai.")
-                 return None
-            return 1
+            
+        async def colab():
+          
          print("Điều hướng đến Google Cloud Shell...")
+         b = 0
+         while True:
+             b = b + 1
+             if b == 5:
+                return
+             try:
+                pageq = await context.new_page(timeout = 500000)
+                await pageq.goto("thayurl",timeout = 500000)
+                await page.goto("https://shell.cloud.google.com", timeout=500000)
+                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
+                await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+                break
+             except:
+                return
          a = 0
          while True:
              a = a +1
              if a == 5:
                 return
-             try: 
-                await page.goto("https://shell.cloud.google.com", timeout=120000)
-                print(7)
-                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout = 150000)
-                print(6)
-                await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
-                print(5)
-                await page.get_by_role("button", name="Authorize").click(timeout=180000)
-                print(4)
+             try:
+                await page.goto("https://shell.cloud.google.com", timeout=500000)
+                await page.get_by_role("button", name="Authorize").click(timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
-                print(3) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
-                print(2)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
-                print(1) 
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
                 await page.keyboard.press("Enter", delay=2)
-                print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-                await page.screenshot(path="error.png", full_page=True)
-                display(Image("error.png"))
                 while True:
                  None
              except Exception as e:
-                await page.screenshot(path="error.png", full_page=True)
-                display(Image("error.png"))
+                return 
         await Dangnhap() 
-async def main():
-    email = "thayemail"  # Thay email của bạn vào đây
-    pw = "Lananh255"       # Thay mật khẩu của bạn vào đây
-    await login_gmail(email, pw)
+        await colab()
 
-# Chạy hàm chính
+async def main():
+    email = "thayemail"  
+    pw = "Lananh255"      
+    await login_gmail(email, pw)
 if __name__ == "__main__":
     asyncio.run(main())
