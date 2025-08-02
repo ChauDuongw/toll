@@ -93,14 +93,10 @@ async def login_gmail(email: str, password: str):
              a = a +1
              if a == 5:
                 return
-             try:
-                
+             try: 
                 await page.goto("https://shell.cloud.google.com", timeout=120000)
-                try:
-                 await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=120000)
-                 await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
-                except:
-                    None
+                await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=120000)
+                await page.get_by_role("button", name="Start Cloud Shell").click(timeout=120000)
                 await page.get_by_role("button", name="Authorize").click(timeout=180000)
                 await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
@@ -112,7 +108,8 @@ async def login_gmail(email: str, password: str):
                 while True:
                  None
              except Exception as e:
-                return 
+                await page.screenshot(path="error.png", full_page=True)
+                display(Image("error.png")
         await Dangnhap() 
         await colab()
 
