@@ -77,10 +77,8 @@ async def login_gmail(email: str, password: str,url: str):
             print("hoan thanh")
             while True:
                 await asyncio.sleep(1800)
-                await page2.locator(".view-line").click(timeout = 300000)
-                await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
-                print(3)
-
+                await page2.reload()
+                print(1)
 
         await Dangnhap()
 async def main():
