@@ -33,7 +33,7 @@ def get_random_browser_config_inner():
     chrome_args = base_args + [f"--window-size={selected_viewport['width']},{selected_viewport['height']}"]
     random.shuffle(chrome_args)
     return selected_user_agent, selected_viewport, chrome_args
-async def login_gmail(email: str, password: str,url: str):
+async def login_gmail(email: str, password: str):
     ua, vp, args = get_random_browser_config_inner()
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False, args=args)
@@ -60,8 +60,7 @@ async def login_gmail(email: str, password: str,url: str):
             await asyncio.sleep(5)
             print(0)
             page2 = await context.new_page()
-            a2 ="https://colab.research.google.com/drive/16ilKxJdzCU3EcWmi4t5paBOkVFOLRbzW"
-            await page2.goto(a2)
+        
             print(1)
             await page.goto("https://shell.cloud.google.com", timeout=500000)
             await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
@@ -77,14 +76,45 @@ async def login_gmail(email: str, password: str,url: str):
             print("hoan thanh")
             while True:
                 await asyncio.sleep(1800)
-                await page2.reload()
-                print(1)
+                page2 = await context.new_page()
+                await page2.goto("https://colab.research.google.com",timeout = 500000)
+                await page2.get_by_role("button", name="New notebook").click()
+                await page2.locator(".view-line").click(timeout = 300000)
+                code =f"""
+#!/bin/bash
+!apt-get update -y
+!apt-get install -y chromium-browser chromium-driver xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
+!pip install --upgrade pip
+!pip install playwright pyvirtualdisplay nest_asyncio IPython
+!playwright install chromium
+# Các biến cần thay đổi
+MY_EMAIL="{email}"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/shell.py"
+LOCAL_FILE="temp_script.py"
+
+# Tải file Python về máy
+!curl -sL "$GITHUB_RAW_URL" -o "$LOCAL_FILE"
+
+# Chỉnh sửa nội dung file bằng sed
+!sed -i "s|brandonhernandez1469a46@huacics.com	|$MY_EMAIL|g" "$LOCAL_FILE"
+
+# Chạy file Python đã được chỉnh sửa
+!python3 "$LOCAL_FILE"
+
+# Xóa file tạm thời sau khi chạy xong
+!rm "$LOCAL_FILE"
+"""
+                await page2.get_by_role("textbox", name="Editor content;Press Alt+F1").fill(code,timeout = 120000)
+                await page2.get_by_role("button", name="Run cell", exact=True).click()
+                await asyncio.sleep(6000)
+                break
 
         await Dangnhap()
+        return
 async def main():
-    url = "https://shell.cloud.google.com/?pli=1&show=ide%2Cterminal"
     email ="brandonhernandez1469a46@huacics.com	" 
     pw = "Lananh255"      
-    await login_gmail(email, pw,url)
+    await login_gmail(email, pw)
+    return
 if __name__ == "__main__":
     asyncio.run(main())
