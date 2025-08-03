@@ -63,9 +63,12 @@ async def login_gmail(email: str, password: str):
         
             print(1)
             await page.goto("https://shell.cloud.google.com", timeout=500000)
-            await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
-            await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
-            print(2)
+            try:
+             await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=180000)
+             await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+             print(2)
+            except:
+                print(2.1)
             await page.get_by_role("button", name="Authorize").click(timeout=500000)
             await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
             print(3)
