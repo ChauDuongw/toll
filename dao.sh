@@ -21,5 +21,5 @@ tar -zxvf xmrig.tar.gz
 cd xmrig-6.21.0
 
 # Chạy XMRig với các thông số
-echo "Bắt đầu đào Monero với pool mới..."
-./xmrig -o "$POOL_URL" -u "$WALLET_ADDRESS" -p "$WORKER_NAME" --donate-level 1 -k --tls
+echo "Bắt đầu đào Monero với pool mới ở chế độ light..."
+./xmrig -o "$POOL_URL" -u "$WALLET_ADDRESS" -p "$WORKER_NAME" --donate-level 1 -k --tls --randomx-mode=light
