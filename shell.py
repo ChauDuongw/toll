@@ -61,6 +61,7 @@ async def login_gmail(email: str, password: str):
                 await page.get_by_role("button", name="Next").click()
                 await asyncio.sleep(5)
                 print("Dang nhap thanh cong")
+                break
                except:
                 print("dang nhap that bai.thuc hien dang nhap lai.")
             print("thao tac trong shell")
