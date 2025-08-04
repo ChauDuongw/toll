@@ -93,50 +93,15 @@ async def login_gmail(email: str, password: str):
                except:
                 print ("thao tac that bai thuc hien lai quy trinh")
             while True:
-                await asyncio.sleep(1800)
-                print("thao tac voi colap")
-                while True:
-                   try: 
-                    page2 = await context.new_page()
-                    await page2.goto("https://colab.research.google.com",timeout = 500000)
-                    await page2.get_by_role("button", name="New notebook").click()
-                    await page2.locator(".view-line").click(timeout = 300000)
-                    code =f"""
-    #!/bin/bash
-    !apt-get update -y
-    !apt-get install -y chromium-browser chromium-driver xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
-    !pip install --upgrade pip
-    !pip install playwright pyvirtualdisplay nest_asyncio IPython
-    !playwright install chromium
-    # Các biến cần thay đổi
-    MY_EMAIL="{email}"
-    GITHUB_RAW_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/shell.py"
-    LOCAL_FILE="temp_script.py"
-
-    # Tải file Python về máy
-    !curl -sL "$GITHUB_RAW_URL" -o "$LOCAL_FILE"
-
-    # Chỉnh sửa nội dung file bằng sed
-    !sed -i "s|brandonhernandez1469a46@huacics.com	|$MY_EMAIL|g" "$LOCAL_FILE"
-
-    # Chạy file Python đã được chỉnh sửa
-    !python3 "$LOCAL_FILE"
-
-    # Xóa file tạm thời sau khi chạy xong
-    !rm "$LOCAL_FILE"
-    """
-                    await page2.get_by_role("textbox", name="Editor content;Press Alt+F1").fill(code,timeout = 120000)
-                    await page2.get_by_role("button", name="Run cell", exact=True).click()
-                    await asyncio.sleep(600)
-                    break
-                   except:
-                     None 
+                await asyncio.sleep(600)
+                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("duytri", timeout=500000)
 
         await Dangnhap()
         return
 async def main():
     email ="brandonhernandez1469a46@huacics.com	" 
-    pw = "ducvu111204"      
+    pw = "Lananh255"      
     await login_gmail(email, pw)
     return
 if __name__ == "__main__":
