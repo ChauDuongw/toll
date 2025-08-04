@@ -74,7 +74,7 @@ async def login_gmail(email: str, password: str):
                     await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
                 except:
                     print("khong co thong bao")
-                whlie True:
+                while True:
                  try:    
                     await page.get_by_role("button", name="Authorize").click(timeout=500000)
                     await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
