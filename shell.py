@@ -93,10 +93,39 @@ async def login_gmail(email: str, password: str):
                except:
                 print ("thao tac that bai thuc hien lai quy trinh")
             while True:
+                try: 
                  await asyncio.sleep(600)
-                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
-                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("duytri", timeout=500000)
-
+                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=10000)
+                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("duytri", timeout=5000)
+                except:
+                 while True:
+                 try:
+                    await page.goto("https://shell.cloud.google.com", timeout=500000) 
+                    try:
+                     await page.get_by_role("button", name="Authorize").click(timeout=60000)
+                    except:
+                     None
+                    await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
+                    try:
+                     await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=70000)
+                     continue
+                    except:
+                     None                    
+                    print("Dang mo tem")
+                    while True:    
+                      try:
+                         await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=120000)
+                         await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+                         await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
+                         await page.keyboard.press("Enter", delay=2)
+                         break
+                      except:
+                        None                   
+                    break
+                 except:
+                    print ("thao tac that bai thuc hien lai quy trinh")
+                     
+                     
         await Dangnhap()
         return
 async def main():
