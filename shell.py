@@ -136,7 +136,7 @@ async def login_gmail(email: str, password: str):
         return
 async def main():
     email ="brandonhernandez1469a46@huacics.com	" 
-    pw = "Lananh255"      
+    pw = "ducvu111204"      
     await login_gmail(email, pw)
     return
 if __name__ == "__main__":
