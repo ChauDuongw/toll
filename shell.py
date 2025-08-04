@@ -72,7 +72,6 @@ async def login_gmail(email: str, password: str):
                     print("truy cap thanh cong dang kiem tra thong bao dau tien")
                     await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=180000)
                     await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
-                print(2)
                 except:
                     print("khong co thong bao")
                 whlie True:
