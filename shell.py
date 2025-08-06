@@ -69,6 +69,11 @@ async def login_gmail(email: str, password: str):
                try:
                 print("truy cap trang https://shell.cloud.google.com ")             
                 await page.goto("https://shell.cloud.google.com", timeout=500000)
+                try:
+                 await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=500000)
+                 await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
+                except :
+                    None
                 while True:
                  try:    
                     await page.get_by_role("button", name="Authorize").click(timeout=500000)
