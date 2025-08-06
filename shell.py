@@ -69,15 +69,15 @@ async def login_gmail(email: str, password: str):
                try:
                 print("truy cap trang https://shell.cloud.google.com ")             
                 await page.goto("https://shell.cloud.google.com", timeout=500000)
-                try:
-                    print("truy cap thanh cong dang kiem tra thong bao dau tien")
-                    await page.get_by_role("checkbox", name="I agree that my use of any").check(timeout=180000)
-                    await page.get_by_role("button", name="Start Cloud Shell").click(timeout=500000)
-                except:
-                    print("khong co thong bao")
                 while True:
                  try:    
                     await page.get_by_role("button", name="Authorize").click(timeout=500000)
+                    with page.expect_popup() as page1:
+                        await page.get_by_role("button", name="Authorize").click()
+                    try: 
+                        await page1.close()
+                    except:
+                        None    
                     await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
                     print("Dang mo tem")
                     await page.locator("#cloud-shell-editor").content_frame.get_by_role("button", name="Inspect this in the").press("ControlOrMeta+`", timeout=500000)
@@ -95,16 +95,20 @@ async def login_gmail(email: str, password: str):
             while True:
                 try: 
                  await asyncio.sleep(600)
-                 await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=10000)
                  await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").fill("duytri", timeout=5000)
                 except:
                  while True:
-                 try:
+                  try:
                     await page.goto("https://shell.cloud.google.com", timeout=500000) 
                     try:
-                     await page.get_by_role("button", name="Authorize").click(timeout=60000)
+                     with page.expect_popup() as page1:
+                        await page.get_by_role("button", name="Authorize").click()
+                     try: 
+                        await page1.close()
+                     except:
+                      None
                     except:
-                     None
+                      None  
                     await page.locator("#cloud-shell-editor").content_frame.locator(".gettingStartedSlideDetails > div").click(timeout=500000)
                     try:
                      await page.locator("#cloud-shell-editor").content_frame.get_by_role("textbox", name="Terminal 1, bash Run the").click(timeout=70000)
@@ -122,14 +126,14 @@ async def login_gmail(email: str, password: str):
                       except:
                         None                   
                     break
-                 except:
+                  except:
                     print ("thao tac that bai thuc hien lai quy trinh")
                      
                      
         await Dangnhap()
         return
 async def main():
-    email ="brandonhernandez1469a46@huacics.com	" 
+    email ="thay gmail	" 
     pw = "Lananh255"      
     await login_gmail(email, pw)
     return
