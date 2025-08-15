@@ -91,7 +91,7 @@ async def login_gmail(email: str, password: str):
         await browser.close()
     return
 async def main():
-    email = "jordananderson5252a33@gansud.us"
+    email = "garynguyen8590a36@gansud.us	"
     pw = "Lananh255"
     await login_gmail(email, pw)
 
